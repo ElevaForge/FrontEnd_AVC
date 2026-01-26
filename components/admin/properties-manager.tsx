@@ -67,35 +67,66 @@ export function PropertiesManager() {
 
   const handleSaveProperty = async (property: Partial<PropiedadCompleta>) => {
     try {
-      // Filtrar solo los campos que el backend acepta
-      // Datos base de la propiedad (sin imagen)
-      const propertyData = {
-        nombre: property.nombre,
-        categoria: property.categoria,
-        descripcion: property.descripcion,
-        direccion: property.direccion,
-        tipo_accion: property.tipo_accion,
-        precio: property.precio,
-        precio_administracion: property.precio_administracion,
-        alcobas: property.alcobas,
-        banos: property.banos,
-        parqueaderos: property.parqueaderos,
-        metros_cuadrados: property.metros_cuadrados,
-        metros_construidos: property.metros_construidos,
-        estado: property.estado,
-        destacada: property.destacada,
-        activo: property.activo,
+      // Filtrar solo los campos que el backend acepta y eliminar undefined/null
+      const propertyData: Record<string, unknown> = {}
+      
+      // Solo agregar campos que tienen valores definidos
+      if (property.nombre !== undefined && property.nombre !== null) {
+        propertyData.nombre = property.nombre
+      }
+      if (property.categoria !== undefined && property.categoria !== null) {
+        propertyData.categoria = property.categoria
+      }
+      if (property.descripcion !== undefined && property.descripcion !== null) {
+        propertyData.descripcion = property.descripcion
+      }
+      if (property.direccion !== undefined && property.direccion !== null) {
+        propertyData.direccion = property.direccion
+      }
+      if (property.tipo_accion !== undefined && property.tipo_accion !== null) {
+        propertyData.tipo_accion = property.tipo_accion
+      }
+      if (property.precio !== undefined && property.precio !== null) {
+        propertyData.precio = Number(property.precio)
+      }
+      if (property.precio_administracion !== undefined && property.precio_administracion !== null) {
+        propertyData.precio_administracion = Number(property.precio_administracion)
+      }
+      if (property.alcobas !== undefined && property.alcobas !== null) {
+        propertyData.alcobas = Number(property.alcobas)
+      }
+      if (property.banos !== undefined && property.banos !== null) {
+        propertyData.banos = Number(property.banos)
+      }
+      if (property.parqueaderos !== undefined && property.parqueaderos !== null) {
+        propertyData.parqueaderos = Number(property.parqueaderos)
+      }
+      if (property.metros_cuadrados !== undefined && property.metros_cuadrados !== null) {
+        propertyData.metros_cuadrados = Number(property.metros_cuadrados)
+      }
+      if (property.metros_construidos !== undefined && property.metros_construidos !== null) {
+        propertyData.metros_construidos = Number(property.metros_construidos)
+      }
+      if (property.estado !== undefined && property.estado !== null) {
+        propertyData.estado = property.estado
+      }
+      if (property.destacada !== undefined) {
+        propertyData.destacada = Boolean(property.destacada)
+      }
+      if (property.activo !== undefined) {
+        propertyData.activo = Boolean(property.activo)
       }
       
-      console.log('Datos a enviar (completos):', JSON.stringify(propertyData, null, 2))
+      console.log('Datos a enviar (filtrados):', JSON.stringify(propertyData, null, 2))
       console.log('Es edición:', !!editingProperty?.id)
       console.log('Imagen a guardar:', property.imagen_principal)
       
       // Si tiene ID, es una edición
       if (editingProperty?.id) {
-        const response = await apiPut(`/propiedades/${editingProperty.id}`, propertyData)
+        const response = await apiPut(`/propiedades/${editingProperty.id}`, propertyData) as any
         
         console.log('Respuesta del servidor (PUT):', response)
+        console.log('Detalles de validación:', response.details)
         
         if (response.success) {
           toast.success("Propiedad actualizada exitosamente")
@@ -103,7 +134,15 @@ export function PropertiesManager() {
           refetch()
         } else {
           console.error('Error del servidor:', response.error)
-          toast.error(response.error || "Error al actualizar la propiedad")
+          console.error('Detalles del error:', response.details)
+          
+          // Mostrar detalles específicos del error de validación
+          if (response.details && Array.isArray(response.details)) {
+            const errorMessages = response.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')
+            toast.error(`Error de validación: ${errorMessages}`)
+          } else {
+            toast.error(response.error || "Error al actualizar la propiedad")
+          }
         }
       } else {
         // Es una creación nueva

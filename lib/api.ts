@@ -42,12 +42,14 @@ export async function apiRequest<T>(
         status: response.status,
         statusText: response.statusText,
         data: data,
+        details: data.details, // Log específico de detalles de validación
         endpoint: endpoint,
       })
       return {
         success: false,
         error: data.error || data.message || `Error ${response.status}`,
-      }
+        details: data.details,
+      } as ApiResponse<T>
     }
 
     return data

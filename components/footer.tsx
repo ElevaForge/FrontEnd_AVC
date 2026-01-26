@@ -75,7 +75,9 @@ export function Footer() {
               <li className="flex items-center gap-3">
                 <Phone className="h-5 w-5 text-secondary flex-shrink-0" />
                 <a
-                  href="tel:+573001234567"
+                  href="https://wa.me/573117284320"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-primary-foreground/80 hover:text-secondary transition-colors"
                 >
                   +57 311 7284320

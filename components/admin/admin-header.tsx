@@ -49,7 +49,7 @@ export function AdminHeader({ onLogout, onNavigate }: AdminHeaderProps) {
         <div className="flex items-center gap-2 md:gap-4">
           <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hover:bg-white/10 text-white">
+              <Button variant="ghost" size="icon" className="relative hover:bg-white/10 text-white" aria-label="Notificaciones">
                 <Bell className="h-5 w-5" />
                 {pendingSolicitudes.length > 0 && (
                   <Badge 
