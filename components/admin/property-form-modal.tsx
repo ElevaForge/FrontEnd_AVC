@@ -28,11 +28,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
   // Inicializar formData directamente con la propiedad si existe
   const getInitialFormData = (): Partial<PropiedadCompleta> => {
     if (property) {
-      return {
-        ...property,
-        precio_administracion: property.precio_administracion || 0,
-        metros_construidos: property.metros_construidos || 0,
-      }
+      return property
     }
     return {
       nombre: "",
@@ -40,13 +36,6 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
       descripcion: "",
       direccion: "",
       tipo_accion: "Venta" as const,
-      precio: 0,
-      precio_administracion: 0,
-      alcobas: 0,
-      banos: 0,
-      parqueaderos: 0,
-      metros_cuadrados: 0,
-      metros_construidos: 0,
       imagen_principal: "",
       estado: "Disponible" as EstadoPropiedad,
       destacada: false,
@@ -58,6 +47,20 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(property?.imagen_principal || "")
   const [uploading, setUploading] = useState(false)
+
+  // Helper function to handle numeric input - allows only numbers and empty values
+  const handleNumericInput = (value: string, field: keyof PropiedadCompleta) => {
+    // Allow empty string
+    if (value === "") {
+      setFormData({ ...formData, [field]: undefined })
+      return
+    }
+    // Only allow numeric characters
+    const numericValue = value.replace(/[^0-9]/g, "")
+    if (numericValue !== "") {
+      setFormData({ ...formData, [field]: Number(numericValue) })
+    }
+  }
 
   const uploadImageToSupabase = async (file: File): Promise<string | null> => {
     try {
@@ -246,9 +249,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="precio">Precio (COP) *</Label>
               <Input
                 id="precio"
-                type="number"
-                value={formData.precio || 0}
-                onChange={(e) => setFormData({ ...formData, precio: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.precio?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "precio")}
+                placeholder="0"
                 required
               />
             </div>
@@ -257,9 +262,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="precio_administracion">Precio Administración (COP)</Label>
               <Input
                 id="precio_administracion"
-                type="number"
-                value={formData.precio_administracion || 0}
-                onChange={(e) => setFormData({ ...formData, precio_administracion: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.precio_administracion?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "precio_administracion")}
+                placeholder="0"
               />
             </div>
           </div>
@@ -270,9 +277,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="metros_cuadrados">Metros² Totales *</Label>
               <Input
                 id="metros_cuadrados"
-                type="number"
-                value={formData.metros_cuadrados || 0}
-                onChange={(e) => setFormData({ ...formData, metros_cuadrados: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.metros_cuadrados?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "metros_cuadrados")}
+                placeholder="0"
                 required
               />
             </div>
@@ -281,9 +290,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="metros_construidos">Metros² Construidos</Label>
               <Input
                 id="metros_construidos"
-                type="number"
-                value={formData.metros_construidos || 0}
-                onChange={(e) => setFormData({ ...formData, metros_construidos: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.metros_construidos?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "metros_construidos")}
+                placeholder="0"
               />
             </div>
 
@@ -291,9 +302,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="alcobas">Alcobas</Label>
               <Input
                 id="alcobas"
-                type="number"
-                value={formData.alcobas || 0}
-                onChange={(e) => setFormData({ ...formData, alcobas: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.alcobas?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "alcobas")}
+                placeholder="0"
               />
             </div>
 
@@ -301,9 +314,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="banos">Baños</Label>
               <Input
                 id="banos"
-                type="number"
-                value={formData.banos || 0}
-                onChange={(e) => setFormData({ ...formData, banos: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.banos?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "banos")}
+                placeholder="0"
               />
             </div>
 
@@ -311,9 +326,11 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Label htmlFor="parqueaderos">Parqueaderos</Label>
               <Input
                 id="parqueaderos"
-                type="number"
-                value={formData.parqueaderos || 0}
-                onChange={(e) => setFormData({ ...formData, parqueaderos: Number(e.target.value) })}
+                type="text"
+                inputMode="numeric"
+                value={formData.parqueaderos?.toString() || ""}
+                onChange={(e) => handleNumericInput(e.target.value, "parqueaderos")}
+                placeholder="0"
               />
             </div>
           </div>
