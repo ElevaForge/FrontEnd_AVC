@@ -29,7 +29,11 @@ export function HeroSection() {
         <div className="mb-8">
           <div className="inline-flex items-center gap-3">
             <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-xl flex items-center justify-center shadow-lg p-2">
-              <img src="/Logo.svg" alt="AVC Logo" className="w-full h-full object-contain" />
+              <img
+                src="/Logo.svg"
+                alt="Logo de AVC Inmobiliaria y Constructora - Servicios inmobiliarios en Pasto y Colombia"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
           <p className="mt-4 text-sm md:text-base text-primary-foreground/80 tracking-widest uppercase">

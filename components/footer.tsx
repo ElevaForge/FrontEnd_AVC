@@ -33,7 +33,11 @@ export function Footer() {
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-lg flex items-center justify-center p-1.5 sm:p-2">
-                <img src="/Logo.svg" alt="AVC Logo" className="w-full h-full object-contain" />
+                <img
+                  src="/Logo.svg"
+                  alt="Logo de AVC Inmobiliaria y Constructora - Empresa inmobiliaria en Pasto, Nariño"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <h3 className="font-bold text-base sm:text-lg">AVC</h3>

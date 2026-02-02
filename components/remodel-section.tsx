@@ -58,7 +58,7 @@ export function RemodelSection() {
                   >
                     <img
                       src={src || "/placeholder.svg"}
-                      alt={`Proyecto de remodelación ${index + 1}`}
+                      alt={`Proyecto de remodelación ${index + 1} realizado por AVC Inmobiliaria - Ejemplo de renovación de espacios en Colombia`}
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                     />
                   </div>
