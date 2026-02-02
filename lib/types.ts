@@ -8,6 +8,7 @@ export type TipoAccion = 'Venta' | 'Arriendo'
 export type EstadoPropiedad = 'Disponible' | 'Vendida' | 'Arrendada' | 'Reservada'
 export type TipoSolicitud = 'Informacion' | 'Visita' | 'Remodelacion' | 'Venta'
 export type EstadoSolicitud = 'Pendiente' | 'Contactado' | 'En_Proceso' | 'Completado' | 'Cancelado'
+export type TipoArchivo = 'image' | 'video'
 
 // Propiedad
 export interface Propiedad {
@@ -204,4 +205,18 @@ export interface PropiedadCreateForm {
   destacada?: boolean
   caracteristicas_ids?: string[]
   amenidades_ids?: string[]
+}
+
+// Multimedia upload
+export interface MultimediaUploadResult {
+  id: string
+  propiedad_id: string
+  url: string
+  tipo_archivo: TipoArchivo
+  es_principal: boolean
+}
+
+export interface MultimediaUploadError {
+  message: string
+  code: 'UPLOAD_FAILED' | 'URL_FAILED' | 'INSERT_FAILED' | 'INVALID_FILE_TYPE'
 }
