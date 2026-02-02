@@ -10,12 +10,7 @@ const benefits = [
   { icon: Lightbulb, text: "Asesoría integral en cada paso" },
 ]
 
-const projectImages = [
-  "/modern-kitchen-renovation.png",
-  "/bathroom-remodel-modern.jpg",
-  "/living-room-renovation.png",
-  "/bedroom-makeover-design.jpg",
-]
+
 
 export function RemodelSection() {
   return (
@@ -47,24 +42,7 @@ export function RemodelSection() {
               ))}
             </div>
 
-            {/* Project Gallery */}
-            <div>
-              <h3 className="text-xl font-semibold text-foreground mb-4">Proyectos Realizados</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {projectImages.map((src, index) => (
-                  <div
-                    key={index}
-                    className="relative aspect-square rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
-                  >
-                    <img
-                      src={src || "/placeholder.svg"}
-                      alt={`Proyecto de remodelación ${index + 1} realizado por AVC Inmobiliaria - Ejemplo de renovación de espacios en Colombia`}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* (Galería de proyectos removida) */}
           </div>
 
           {/* Right Column - Form */}
