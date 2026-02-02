@@ -55,10 +55,14 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
       setFormData({ ...formData, [field]: undefined })
       return
     }
-    // Only allow numeric characters
-    const numericValue = value.replace(/[^0-9]/g, "")
-    if (numericValue !== "") {
-      setFormData({ ...formData, [field]: Number(numericValue) })
+    // Only allow numeric characters and decimal point
+    const numericValue = value.replace(/[^0-9.]/g, "")
+    // Prevent multiple decimal points
+    const parts = numericValue.split(".")
+    const sanitized = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : numericValue
+    
+    if (sanitized !== "" && sanitized !== ".") {
+      setFormData({ ...formData, [field]: Number(sanitized) })
     }
   }
 
@@ -250,8 +254,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Input
                 id="precio"
                 type="text"
-                inputMode="numeric"
-                value={formData.precio?.toString() || ""}
+                inputMode="decimal"
+                value={String(formData.precio ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "precio")}
                 placeholder="0"
                 required
@@ -263,8 +267,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Input
                 id="precio_administracion"
                 type="text"
-                inputMode="numeric"
-                value={formData.precio_administracion?.toString() || ""}
+                inputMode="decimal"
+                value={String(formData.precio_administracion ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "precio_administracion")}
                 placeholder="0"
               />
@@ -278,8 +282,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Input
                 id="metros_cuadrados"
                 type="text"
-                inputMode="numeric"
-                value={formData.metros_cuadrados?.toString() || ""}
+                inputMode="decimal"
+                value={String(formData.metros_cuadrados ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "metros_cuadrados")}
                 placeholder="0"
                 required
@@ -291,8 +295,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               <Input
                 id="metros_construidos"
                 type="text"
-                inputMode="numeric"
-                value={formData.metros_construidos?.toString() || ""}
+                inputMode="decimal"
+                value={String(formData.metros_construidos ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "metros_construidos")}
                 placeholder="0"
               />
@@ -304,7 +308,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                 id="alcobas"
                 type="text"
                 inputMode="numeric"
-                value={formData.alcobas?.toString() || ""}
+                value={String(formData.alcobas ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "alcobas")}
                 placeholder="0"
               />
@@ -316,7 +320,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                 id="banos"
                 type="text"
                 inputMode="numeric"
-                value={formData.banos?.toString() || ""}
+                value={String(formData.banos ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "banos")}
                 placeholder="0"
               />
@@ -328,7 +332,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                 id="parqueaderos"
                 type="text"
                 inputMode="numeric"
-                value={formData.parqueaderos?.toString() || ""}
+                value={String(formData.parqueaderos ?? "")}
                 onChange={(e) => handleNumericInput(e.target.value, "parqueaderos")}
                 placeholder="0"
               />
