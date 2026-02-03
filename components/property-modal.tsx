@@ -126,11 +126,15 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
         <div className="overflow-y-auto max-h-[90vh]">
           {/* Image Gallery - using img instead of next/image */}
           <div className="relative aspect-video">
-            <img
-              src={images[currentImageIndex] || "/placeholder.svg?height=400&width=600&query=property interior"}
-              alt={property.nombre}
-              className="w-full h-full object-cover"
-            />
+            {(() => {
+              const url = images[currentImageIndex] || "/placeholder.svg?height=400&width=600&query=property interior"
+              const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.includes('video')
+              return isVideo ? (
+                <video className="w-full h-full object-cover" src={url} controls playsInline />
+              ) : (
+                <img src={url} alt={property.nombre} className="w-full h-full object-cover" />
+              )
+            })()}
 
             {/* Navigation Arrows */}
             {images.length > 1 && (

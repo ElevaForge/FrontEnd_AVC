@@ -591,9 +591,10 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                         <video 
                           src={media.url} 
                           className="w-full h-full object-cover"
-                          muted
+                          controls
+                          playsInline
                         />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                           <Play className="h-8 w-8 text-white" />
                         </div>
                       </div>
@@ -668,9 +669,10 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                         <video 
                           src={media.preview} 
                           className="w-full h-full object-cover"
-                          muted
+                          controls
+                          playsInline
                         />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                           <Play className="h-8 w-8 text-white" />
                         </div>
                       </div>

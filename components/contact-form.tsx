@@ -22,7 +22,8 @@ interface FormData {
   descripcion: string
   nombre: string
   contacto: string
-  fechaVisita: string
+  fecha: string
+  hora: string
   tipoServicio: string
 }
 
@@ -40,7 +41,8 @@ export function ContactForm({ type }: ContactFormProps) {
     descripcion: "",
     nombre: "",
     contacto: "",
-    fechaVisita: "",
+    fecha: "",
+    hora: "",
     tipoServicio: type === "remodelacion" ? "renovacion" : "vender",
   })
 
@@ -70,12 +72,11 @@ export function ContactForm({ type }: ContactFormProps) {
           return "Ingresa un teléfono (10 dígitos) o email válido"
         }
         break
-      case "fechaVisita":
-        if (!value) return "La fecha de visita es requerida"
-        const selectedDate = new Date(value)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        if (selectedDate < today) return "La fecha debe ser futura"
+      case "fecha":
+        if (!value) return "La fecha es requerida"
+        break
+      case "hora":
+        if (!value) return "La hora es requerida"
         break
     }
     return undefined
@@ -99,7 +100,8 @@ export function ContactForm({ type }: ContactFormProps) {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
     let isValid = true
-    ;["ubicacion", "descripcion", "nombre", "contacto", "fechaVisita"].forEach((field) => {
+    ;["ubicacion", "descripcion", "nombre", "contacto", "fecha", "hora"].forEach((field) => {
+      // @ts-ignore
       const error = validateField(field, formData[field as keyof FormData])
       if (error) {
         newErrors[field as keyof FormErrors] = error
@@ -113,7 +115,8 @@ export function ContactForm({ type }: ContactFormProps) {
       descripcion: true,
       nombre: true,
       contacto: true,
-      fechaVisita: true,
+      fecha: true,
+      hora: true,
     })
 
     return isValid
@@ -144,16 +147,37 @@ export function ContactForm({ type }: ContactFormProps) {
       }
 
       // Crear solicitud directamente en Supabase
+      // No enviar valores no mapeados directamente al enum de la BD.
+      // Si no hay mapeo definido, enviar null y adjuntar la selección en la descripción.
+      const mappedTipoServicio = tipoServicioMap[formData.tipoServicio]
+      const descripcionFinal = formData.descripcion
+        ? `${formData.descripcion}\n\nServicio seleccionado: ${formData.tipoServicio}`
+        : `Servicio seleccionado: ${formData.tipoServicio}`
+
       const solicitudData = {
         tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
-        tipo_servicio: tipoServicioMap[formData.tipoServicio] || formData.tipoServicio,
+        tipo_servicio: mappedTipoServicio || null,
         nombre_persona: formData.nombre,
         email: email || null,
         telefono: telefono || formData.contacto,
         ubicacion: formData.ubicacion,
-        descripcion: formData.descripcion,
+        descripcion: descripcionFinal,
         estado: "Pendiente",
       }
+
+      // Validar y combinar fecha + hora a ISO
+      if (!formData.fecha || !formData.hora) {
+        throw new Error('Debes seleccionar fecha y hora para la visita')
+      }
+      const fechaIso = `${formData.fecha}T${formData.hora}`
+      const selected = new Date(fechaIso)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (selected < today) {
+        throw new Error('La fecha y hora deben ser futuras')
+      }
+
+      solicitudData['fecha_visita_preferida'] = selected.toISOString()
 
       const { error } = await supabase.from('solicitudes').insert(solicitudData)
 
@@ -175,7 +199,8 @@ export function ContactForm({ type }: ContactFormProps) {
         descripcion: "",
         nombre: "",
         contacto: "",
-        fechaVisita: "",
+        fecha: "",
+        hora: "",
         tipoServicio: type === "remodelacion" ? "renovacion" : "vender",
       })
       setTouched({})
@@ -322,28 +347,41 @@ export function ContactForm({ type }: ContactFormProps) {
 
       {/* Fecha de Visita */}
       <div className="space-y-2">
-        <Label htmlFor={`${type}-fecha`} className="text-card-foreground">
-          Fecha y hora preferida para visita
-        </Label>
-        <div className="relative">
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            id={`${type}-fecha`}
-            type="datetime-local"
-            value={formData.fechaVisita}
-            onChange={(e) => handleChange("fechaVisita", e.target.value)}
-            onBlur={() => handleBlur("fechaVisita")}
-            className={cn(
-              "pl-10",
-              getInputState("fechaVisita") === "error" && "border-destructive focus-visible:ring-destructive",
-              getInputState("fechaVisita") === "success" && "border-green-500 focus-visible:ring-green-500",
-            )}
-          />
+        <Label className="text-card-foreground">Fecha y hora preferida para visita</Label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id={`${type}-fecha`}
+              type="date"
+              value={formData.fecha}
+              onChange={(e) => handleChange("fecha", e.target.value)}
+              onBlur={() => handleBlur("fecha")}
+              className={cn(
+                "pl-10",
+                getInputState("fecha") === "error" && "border-destructive focus-visible:ring-destructive",
+                getInputState("fecha") === "success" && "border-green-500 focus-visible:ring-green-500",
+              )}
+            />
+          </div>
+          <div className="relative w-1/3">
+            <Input
+              id={`${type}-hora`}
+              type="time"
+              value={formData.hora}
+              onChange={(e) => handleChange("hora", e.target.value)}
+              onBlur={() => handleBlur("hora")}
+              className={cn(
+                getInputState("hora") === "error" && "border-destructive focus-visible:ring-destructive",
+                getInputState("hora") === "success" && "border-green-500 focus-visible:ring-green-500",
+              )}
+            />
+          </div>
         </div>
-        {errors.fechaVisita && touched.fechaVisita && (
+        {(errors.fecha || errors.hora) && (touched.fecha || touched.hora) && (
           <p className="text-sm text-destructive flex items-center gap-1">
             <AlertCircle className="h-4 w-4" />
-            {errors.fechaVisita}
+            {errors.fecha || errors.hora}
           </p>
         )}
       </div>
