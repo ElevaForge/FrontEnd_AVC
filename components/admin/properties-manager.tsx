@@ -27,6 +27,7 @@ export function PropertiesManager() {
   const [editingProperty, setEditingProperty] = useState<PropiedadCompleta | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterCategory, setFilterCategory] = useState<string>("all")
+  const { user } = useAuth()
   
   const { propiedades, loading, refetch } = usePropiedades({})
 
@@ -77,6 +78,123 @@ export function PropertiesManager() {
       case "Vendida": return "bg-red-500"
       case "Arrendada": return "bg-blue-500"
       default: return "bg-gray-500"
+    }
+  }
+
+  const handleSaveProperty = async (
+    property: Partial<PropiedadCompleta>,
+    newMediaFiles: PendingMediaFile[] = [],
+    deletedMediaIds: string[] = [],
+    principalMediaId: string | null = null
+  ) => {
+    try {
+      if (!user) {
+        toast.error('Debes iniciar sesión para crear o editar propiedades')
+        return
+      }
+
+      const propertyData: Record<string, unknown> = {}
+      if (property.nombre !== undefined && property.nombre !== null) propertyData.nombre = property.nombre
+      if (property.categoria !== undefined && property.categoria !== null) propertyData.categoria = property.categoria
+      if (property.descripcion !== undefined && property.descripcion !== null) propertyData.descripcion = property.descripcion
+      if (property.direccion !== undefined && property.direccion !== null) propertyData.direccion = property.direccion
+      if (property.tipo_accion !== undefined && property.tipo_accion !== null) propertyData.tipo_accion = property.tipo_accion
+      if (property.precio !== undefined && property.precio !== null) propertyData.precio = Number(property.precio)
+      if (property.precio_administracion !== undefined && property.precio_administracion !== null) propertyData.precio_administracion = Number(property.precio_administracion)
+      if (property.alcobas !== undefined && property.alcobas !== null) propertyData.alcobas = Number(property.alcobas)
+      if (property.banos !== undefined && property.banos !== null) propertyData.banos = Number(property.banos)
+      if (property.parqueaderos !== undefined && property.parqueaderos !== null) propertyData.parqueaderos = Number(property.parqueaderos)
+      if (property.metros_cuadrados !== undefined && property.metros_cuadrados !== null) propertyData.metros_cuadrados = Number(property.metros_cuadrados)
+      if (property.metros_construidos !== undefined && property.metros_construidos !== null) propertyData.metros_construidos = Number(property.metros_construidos)
+      if (property.estado !== undefined && property.estado !== null) propertyData.estado = property.estado
+      if (property.destacada !== undefined) propertyData.destacada = Boolean(property.destacada)
+      if (property.activo !== undefined) propertyData.activo = Boolean(property.activo)
+
+      let propertyId: string | undefined
+
+      if (editingProperty?.id) {
+        const { error } = await supabase.from('propiedades').update(propertyData).eq('id', editingProperty.id)
+        if (error) {
+          console.error('Error updating property:', error)
+          toast.error('Error al actualizar la propiedad')
+          return
+        }
+        propertyId = editingProperty.id
+        toast.success('Propiedad actualizada exitosamente')
+      } else {
+        const { data, error } = await supabase.from('propiedades').insert(propertyData).select().single()
+        if (error || !data) {
+          console.error('Error creating property:', error)
+          toast.error('Error al crear la propiedad')
+          return
+        }
+        propertyId = (data as any).id
+        toast.success('Propiedad creada exitosamente')
+      }
+
+      if (propertyId) {
+        await supabase.from('imagenes_propiedad').update({ es_principal: false }).eq('propiedad_id', propertyId)
+
+        for (const mediaId of deletedMediaIds) {
+          try {
+            await supabase.from('imagenes_propiedad').delete().eq('id', mediaId)
+          } catch (err) {
+            console.error('Error deleting media row:', err)
+          }
+        }
+
+        let uploadedCount = 0
+        for (let i = 0; i < newMediaFiles.length; i++) {
+          const media = newMediaFiles[i]
+          try {
+            const fileExt = media.file.name.split('.').pop()
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
+            const filePath = `${propertyId}/${fileName}`
+
+            const { error: uploadError } = await supabase.storage.from('propiedades-imagenes').upload(filePath, media.file, { cacheControl: '3600', upsert: false })
+            if (uploadError) {
+              console.error('Upload error:', uploadError)
+              continue
+            }
+
+            const { data: publicData } = await supabase.storage.from('propiedades-imagenes').getPublicUrl(filePath)
+            const publicUrl = (publicData as any)?.publicUrl || ''
+
+            const esPrincipal = principalMediaId === media.id
+
+            const { error: insertErr } = await supabase.from('imagenes_propiedad').insert({
+              propiedad_id: propertyId,
+              url: publicUrl,
+              url_thumbnail: null,
+              titulo: null,
+              descripcion: null,
+              orden: i,
+              es_principal: esPrincipal,
+            })
+
+            if (insertErr) console.error('Insert media error:', insertErr)
+            else uploadedCount++
+          } catch (err) {
+            console.error('Error processing media:', err)
+          }
+        }
+
+        if (uploadedCount > 0) toast.success(`${uploadedCount} archivo(s) multimedia subidos`)
+
+        if (principalMediaId && !principalMediaId.startsWith('pending-')) {
+          try {
+            await supabase.from('imagenes_propiedad').update({ es_principal: true }).eq('id', principalMediaId)
+          } catch (err) {
+            console.error('Error setting principal:', err)
+          }
+        }
+      }
+
+      setIsModalOpen(false)
+      refetch()
+    } catch (error) {
+      console.error('Error saving property:', error)
+      toast.error('Error al guardar la propiedad')
     }
   }
 
