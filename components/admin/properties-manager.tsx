@@ -31,8 +31,10 @@ export function PropertiesManager() {
   const { propiedades, loading, refetch } = usePropiedades({})
 
   const filteredProperties = (propiedades || []).filter(property => {
-    const matchesSearch = property.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         property.direccion.toLowerCase().includes(searchTerm.toLowerCase())
+    const name = property.nombre || ''
+    const address = property.direccion || ''
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         address.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = filterCategory === "all" || property.categoria === filterCategory
     return matchesSearch && matchesCategory
   })
@@ -172,7 +174,7 @@ export function PropertiesManager() {
                 <div className="flex-1 space-y-2 md:space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 truncate">{property.nombre}</h3>
+                          <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 truncate">{property.nombre ?? 'Sin nombre'}</h3>
                       <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground">
                         <MapPin className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
                         <span className="truncate">{property.direccion}</span>
@@ -192,20 +194,20 @@ export function PropertiesManager() {
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="font-semibold text-foreground">Precio:</span>
-                      <span className="text-primary font-bold">{formatPrice(property.precio)}</span>
+                      <span className="text-primary font-bold">{formatPrice(Number(property.precio ?? 0))}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="font-semibold text-foreground">m²:</span>
                       <span className="text-muted-foreground">{property.metros_cuadrados}</span>
                     </div>
                   </div>
-                  {property.alcobas > 0 && (
+                  {(property.alcobas ?? 0) > 0 && (
                     <div className="flex items-center gap-1">
                       <span className="font-semibold text-foreground">Alcobas:</span>
                       <span className="text-muted-foreground">{property.alcobas}</span>
                     </div>
                   )}
-                  {property.banos > 0 && (
+                  {(property.banos ?? 0) > 0 && (
                     <div className="flex items-center gap-1">
                       <span className="font-semibold text-foreground">Baños:</span>
                       <span className="text-muted-foreground">{property.banos}</span>

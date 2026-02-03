@@ -111,6 +111,7 @@ export default function RootLayout({
               try{ return { message: err && err.message, stack: err && err.stack, name: err && err.name } }catch(e){ return { message: String(err) } }
             }
             window.__client_last_error = null;
+            // Capture JS runtime errors
             window.addEventListener('error', function(e){
               try{
                 var info = serializeError(e.error || e.message || 'Unknown error');
@@ -118,6 +119,7 @@ export default function RootLayout({
                 window.__client_last_error = info;
               }catch(err){ console.error('Error serializing global error', err) }
             });
+            // Capture unhandled promise rejections
             window.addEventListener('unhandledrejection', function(e){
               try{
                 var reason = e.reason || 'Unhandled rejection';
@@ -126,6 +128,36 @@ export default function RootLayout({
                 window.__client_last_error = info;
               }catch(err){ console.error('Error serializing rejection', err) }
             });
+
+            // Global media fallback: replace missing images with a placeholder
+            function handleMediaError(ev){
+              try{
+                var t = ev.target || ev.srcElement;
+                if (!t) return;
+                var tag = (t.tagName || '').toLowerCase();
+                if (tag === 'img'){
+                  if (!t.__replaced_with_placeholder) {
+                    t.__replaced_with_placeholder = true;
+                    t.src = '/placeholder.svg';
+                    t.removeAttribute('srcset');
+                  }
+                } else if (tag === 'video'){
+                  if (!t.__handled_video_error) {
+                    t.__handled_video_error = true;
+                    // hide the broken video and optionally show a poster
+                    t.style.display = 'none';
+                    var p = document.createElement('img');
+                    p.src = '/placeholder.svg';
+                    p.alt = 'Media no disponible';
+                    p.className = t.className || '';
+                    t.parentNode && t.parentNode.insertBefore(p, t);
+                  }
+                }
+              } catch (err){ console.warn('Error handling media fallback', err) }
+            }
+
+            // Use capture to catch load errors from descendants
+            document.addEventListener('error', handleMediaError, true);
           })();
         `}} />
         <Toaster position="top-right" />
