@@ -144,14 +144,21 @@ export function ContactForm({ type }: ContactFormProps) {
       }
 
       // Crear solicitud directamente en Supabase
+      // No enviar valores no mapeados directamente al enum de la BD.
+      // Si no hay mapeo definido, enviar null y adjuntar la selección en la descripción.
+      const mappedTipoServicio = tipoServicioMap[formData.tipoServicio]
+      const descripcionFinal = formData.descripcion
+        ? `${formData.descripcion}\n\nServicio seleccionado: ${formData.tipoServicio}`
+        : `Servicio seleccionado: ${formData.tipoServicio}`
+
       const solicitudData = {
         tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
-        tipo_servicio: tipoServicioMap[formData.tipoServicio] || formData.tipoServicio,
+        tipo_servicio: mappedTipoServicio || null,
         nombre_persona: formData.nombre,
         email: email || null,
         telefono: telefono || formData.contacto,
         ubicacion: formData.ubicacion,
-        descripcion: formData.descripcion,
+        descripcion: descripcionFinal,
         estado: "Pendiente",
       }
 
