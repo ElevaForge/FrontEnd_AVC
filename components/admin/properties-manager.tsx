@@ -174,17 +174,18 @@ export function PropertiesManager() {
           }
         }
 
-        // Subir archivos en paralelo para mejorar tiempo de respuesta
-        const uploadTasks = newMediaFiles.map(async (media, index) => {
+        let uploadedCount = 0
+        for (let i = 0; i < newMediaFiles.length; i++) {
+          const media = newMediaFiles[i]
           try {
-            const fileExt = (media.file.name || '').split('.').pop() || ''
-            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}${fileExt ? `.${fileExt}` : ''}`
+            const fileExt = media.file.name.split('.').pop()
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
             const filePath = `${propertyId}/${fileName}`
 
             const { error: uploadError } = await supabase.storage.from('propiedades-imagenes').upload(filePath, media.file, { cacheControl: '3600', upsert: false })
             if (uploadError) {
-              console.error('Upload error:', uploadError, media.file.name)
-              throw uploadError
+              console.error('Upload error:', uploadError)
+              continue
             }
 
             const { data: publicData } = await supabase.storage.from('propiedades-imagenes').getPublicUrl(filePath)
@@ -198,52 +199,36 @@ export function PropertiesManager() {
               url_thumbnail: null,
               titulo: null,
               descripcion: null,
-              orden: index,
+              orden: i,
               es_principal: esPrincipal,
             })
 
-            if (insertErr) {
-              console.error('Insert media error:', insertErr)
-              // Optionally try to delete uploaded file to avoid orphaned storage
-              try {
-                await supabase.storage.from('propiedades-imagenes').remove([filePath])
-              } catch (rmErr) {
-                console.warn('Failed to remove uploaded file after DB insert error', rmErr)
-              }
-              throw insertErr
-            }
-
-            return { success: true, url: publicUrl, mediaId: media.id }
+            if (insertErr) console.error('Insert media error:', insertErr)
+            else uploadedCount++
           } catch (err) {
-            return { success: false, error: err, mediaId: media.id }
-          }
-        })
-
-        const results = await Promise.allSettled(uploadTasks)
-        const successful = results.filter(r => r.status === 'fulfilled' && (r as any).value && (r as any).value.success).map(r => (r as any).value)
-        const failed = results.filter(r => r.status === 'fulfilled' ? !(r as any).value.success : true)
-
-        if (successful.length > 0) {
-          toast.success(`${successful.length} archivo(s) multimedia subidos`)
-        }
-
-        // Si la media principal es de tipo pendiente, actualizar la propiedad con la URL correspondiente
-        if (principalMediaId && principalMediaId.startsWith('pending-')) {
-          const principalResult = successful.find(s => s.mediaId === principalMediaId)
-          if (principalResult && principalResult.url) {
-            try {
-              await supabase.from('propiedades').update({ imagen_principal: principalResult.url }).eq('id', propertyId)
-            } catch (err) {
-              console.error('Error updating property principal image:', err)
-            }
+            console.error('Error processing media:', err)
           }
         }
 
-        // Si la media principal es existente (id), ya se dejó marcado más arriba
+        if (uploadedCount > 0) toast.success(`${uploadedCount} archivo(s) multimedia subidos`)
+
+        if (principalMediaId && !principalMediaId.startsWith('pending-')) {
+          try {
+            await supabase.from('imagenes_propiedad').update({ es_principal: true }).eq('id', principalMediaId)
+          } catch (err) {
+            console.error('Error setting principal:', err)
+          }
+        }
       }
 
+      // Trigger refetch and wait briefly so the UI updates before closing modal
+      try {
+        refetch()
+        await new Promise(res => setTimeout(res, 500))
+      } catch (err) {
+        console.warn('Error triggering refetch after save:', err)
+      }
       setIsModalOpen(false)
-      refetch()
     } catch (error) {
       console.error('Error saving property:', error)
       toast.error('Error al guardar la propiedad')
