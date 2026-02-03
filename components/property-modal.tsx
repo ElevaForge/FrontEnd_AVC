@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, MapPin, Bed, Bath, Car, Maximize, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import type { PropiedadCompleta } from "@/lib/types"
+import type { PropiedadCompleta, ImagenPropiedad } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
 
 interface PropertyModalProps {
   property: PropiedadCompleta | null
@@ -30,14 +31,69 @@ const estadoLabels = {
 
 export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [images, setImages] = useState<string[]>([])
+  const [loadingImages, setLoadingImages] = useState(false)
+
+  // Cargar imágenes cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && property?.id) {
+      loadImages(property.id)
+    } else {
+      setImages([])
+      setCurrentImageIndex(0)
+    }
+  }, [isOpen, property?.id])
+
+  const loadImages = async (propertyId: string) => {
+    setLoadingImages(true)
+    try {
+      // Primero intentar usar las imágenes que ya vienen en la propiedad
+      if (property?.imagenes && property.imagenes.length > 0) {
+        const urls = property.imagenes.map(img => img.url).filter(Boolean)
+        if (urls.length > 0) {
+          setImages(urls)
+          setLoadingImages(false)
+          return
+        }
+      }
+
+      // Si no hay imágenes en la propiedad, cargar desde BD
+      const { data, error } = await supabase
+        .from('imagenes_propiedad')
+        .select('*')
+        .eq('propiedad_id', propertyId)
+        .order('orden', { ascending: true })
+
+      if (error) {
+        console.error('Error loading images:', error)
+        // Fallback a imagen principal
+        if (property?.imagen_principal) {
+          setImages([property.imagen_principal])
+        }
+      } else if (data && data.length > 0) {
+        const urls = data.map((img: ImagenPropiedad) => img.url).filter(Boolean)
+        setImages(urls.length > 0 ? urls : (property?.imagen_principal ? [property.imagen_principal] : []))
+      } else {
+        // Sin imágenes, usar imagen principal si existe
+        if (property?.imagen_principal) {
+          setImages([property.imagen_principal])
+        }
+      }
+    } catch (err) {
+      console.error('Error loading images:', err)
+      if (property?.imagen_principal) {
+        setImages([property.imagen_principal])
+      }
+    } finally {
+      setLoadingImages(false)
+    }
+  }
 
   if (!isOpen || !property) return null
 
   const whatsappMessage = encodeURIComponent(
     `Hola, estoy interesado en la propiedad "${property.nombre}" ubicada en ${property.direccion}. Precio: ${formatPrice(property.precio)}. ¿Podrían darme más información?`,
   )
-
-  const images = property.imagen_principal ? [property.imagen_principal] : []
   
   const nextImage = () => {
     if (images.length > 1) {

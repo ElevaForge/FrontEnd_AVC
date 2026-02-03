@@ -102,8 +102,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           setPrincipalMediaId(principal.id)
         }
       } else {
-        // Intentar cargar desde API
-        const response = await apiGet<ImagenPropiedad[]>(`/propiedades/${propertyId}/imagenes`)
+        // Intentar cargar desde API usando la tabla imagenes_propiedad
+        const response = await apiGet<ImagenPropiedad[]>(`/imagenes_propiedad?propiedad_id=eq.${propertyId}&order=orden.asc`)
         if (response.success && response.data) {
           const mediaWithType: ExistingMedia[] = response.data.map(img => ({
             ...img,
@@ -296,12 +296,6 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
       const parqueaderos = Number(formData.parqueaderos ?? 0)
       if (parqueaderos < 0 || parqueaderos > 20) {
         toast.error('Parqueaderos debe estar entre 0 y 20')
-        return false
-      }
-
-      const estrato = formData['estrato'] !== undefined ? Number(formData['estrato']) : undefined
-      if (estrato !== undefined && (estrato < 1 || estrato > 6)) {
-        toast.error('Estrato debe estar entre 1 y 6')
         return false
       }
 
