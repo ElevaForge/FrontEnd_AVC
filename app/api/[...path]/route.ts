@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000/api'
+// Default to the Supabase REST endpoint if BACKEND_URL isn't set. If you have a
+// custom backend, set `BACKEND_URL` in the environment to that URL.
+const BACKEND_URL = process.env.BACKEND_URL || 'https://bjvzasgfdxlsgvaizrli.supabase.co/rest/v1'
+
+// Prefer a server-side key for proxied requests (service_role). Falls back to
+// NEXT_PUBLIC_SUPABASE_ANON_KEY if set. We will attach this as `apikey` and
+// `Authorization` when forwarding requests to Supabase REST.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 export async function GET(
   request: NextRequest,
@@ -69,6 +76,14 @@ async function proxyRequest(
       headers['Authorization'] = authHeader
     }
 
+    // If a SUPABASE_KEY is configured on the server, attach it so proxied
+    // requests to Supabase REST are authenticated. Do not overwrite an
+    // explicit Authorization header sent by the client.
+    if (SUPABASE_KEY && !authHeader) {
+      headers['apikey'] = SUPABASE_KEY
+      headers['Authorization'] = `Bearer ${SUPABASE_KEY}`
+    }
+
     const response = await fetch(fullUrl, {
       method,
       headers,
@@ -85,10 +100,24 @@ async function proxyRequest(
     })
   } catch (error) {
     console.error('Proxy error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Error del servidor'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000/api'
+    
+    // Si es un error de conexión, dar más contexto
+    if (errorMessage.includes('fetch failed') || errorMessage.includes('ECONNREFUSED')) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `No se pudo conectar al servidor backend (${backendUrl}). Verifica que el backend esté corriendo.`
+        },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Error del servidor' 
+        error: errorMessage
       },
       { status: 500 }
     )
