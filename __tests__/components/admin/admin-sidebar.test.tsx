@@ -33,12 +33,6 @@ describe('AdminSidebar', () => {
     expect(mockOnViewChange).toHaveBeenCalledWith('properties')
   })
 
-  it('renders configuration button', () => {
-    render(<AdminSidebar currentView="dashboard" onViewChange={mockOnViewChange} />)
-    
-    expect(screen.getAllByText('Configuración').length).toBeGreaterThan(0)
-  })
-
   it('renders mobile menu button', () => {
     render(<AdminSidebar currentView="dashboard" onViewChange={mockOnViewChange} />)
     

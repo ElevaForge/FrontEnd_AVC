@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { apiPost } from "@/lib/api"
-import type { SolicitudRemodelacionForm, SolicitudVentaForm } from "@/lib/types"
+import { supabase } from "@/lib/supabase"
 
 interface ContactFormProps {
   type: "remodelacion" | "venta"
@@ -132,38 +131,26 @@ export function ContactForm({ type }: ContactFormProps) {
 
     try {
       // Preparar datos según el tipo
-      const [fecha, hora] = formData.fechaVisita.split('T')
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
-      if (type === "remodelacion") {
-        const payload: SolicitudRemodelacionForm = {
-          nombre_persona: formData.nombre,
-          email: email || undefined as any,
-          telefono: telefono || formData.contacto,
-          ubicacion: formData.ubicacion,
-          descripcion: formData.descripcion,
-        }
+      // Crear solicitud directamente en Supabase
+      const solicitudData = {
+        tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
+        tipo_servicio: formData.tipoServicio,
+        nombre_persona: formData.nombre,
+        email: email || null,
+        telefono: telefono || formData.contacto,
+        ubicacion: formData.ubicacion,
+        descripcion: formData.descripcion,
+        estado: "Pendiente",
+      }
 
-        const response = await apiPost('/solicitudes/remodelacion', payload)
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Error al enviar solicitud')
-        }
-      } else {
-        const payload: SolicitudVentaForm = {
-          nombre_persona: formData.nombre,
-          email: email || undefined as any,
-          telefono: telefono || formData.contacto,
-          ubicacion: formData.ubicacion,
-          descripcion: formData.descripcion,
-        }
+      const { error } = await supabase.from('solicitudes').insert(solicitudData)
 
-        const response = await apiPost('/solicitudes/venta', payload)
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Error al enviar solicitud')
-        }
+      if (error) {
+        console.error('Error inserting solicitud:', error)
+        throw new Error(error.message || 'Error al enviar solicitud')
       }
 
       toast.success(

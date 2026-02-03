@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Search, Edit, Trash2, Eye, MapPin } from "lucide-react"
+import { Plus, Search, Edit, Trash2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -400,10 +400,6 @@ export function PropertiesManager() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2 pt-3 md:pt-4 border-t">
-                    <Button variant="outline" size="sm" className="text-xs md:text-sm h-8 md:h-9">
-                      <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                      Ver
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
