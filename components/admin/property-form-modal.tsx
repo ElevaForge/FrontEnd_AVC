@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { type PropiedadCompleta, type CategoriaPropiedad, type EstadoPropiedad, type ImagenPropiedad } from "@/lib/types"
-import { apiGet } from "@/lib/api"
+import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import {
   Select,
@@ -102,11 +102,16 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           setPrincipalMediaId(principal.id)
         }
       } else {
-        // Intentar cargar desde API usando la tabla imagenes_propiedad
-        // Agregar limit para asegurar que se cargan todas (hasta el máximo permitido de 20)
-        const response = await apiGet<ImagenPropiedad[]>(`/imagenes_propiedad?propiedad_id=eq.${propertyId}&order=orden.asc&limit=20`)
-        if (response.success && response.data) {
-          const mediaWithType: ExistingMedia[] = response.data.map(img => ({
+        // Cargar imágenes directamente desde Supabase
+        const { data, error } = await supabase
+          .from('imagenes_propiedad')
+          .select('*')
+          .eq('propiedad_id', propertyId)
+          .order('orden', { ascending: true })
+          .limit(20)
+
+        if (!error && data && data.length > 0) {
+          const mediaWithType: ExistingMedia[] = data.map((img: ImagenPropiedad) => ({
             ...img,
             tipo_archivo: detectMediaType(img.url)
           }))
@@ -115,6 +120,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           if (principal) {
             setPrincipalMediaId(principal.id)
           }
+        } else if (error) {
+          console.error('Error loading images:', error)
         }
       }
     } catch (error) {
