@@ -103,7 +103,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
         }
       } else {
         // Intentar cargar desde API usando la tabla imagenes_propiedad
-        const response = await apiGet<ImagenPropiedad[]>(`/imagenes_propiedad?propiedad_id=eq.${propertyId}&order=orden.asc`)
+        // Agregar limit para asegurar que se cargan todas (hasta el máximo permitido de 20)
+        const response = await apiGet<ImagenPropiedad[]>(`/imagenes_propiedad?propiedad_id=eq.${propertyId}&order=orden.asc&limit=20`)
         if (response.success && response.data) {
           const mediaWithType: ExistingMedia[] = response.data.map(img => ({
             ...img,

@@ -63,6 +63,7 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
         .select('*')
         .eq('propiedad_id', propertyId)
         .order('orden', { ascending: true })
+        .limit(20)
 
       if (error) {
         console.error('Error loading images:', error)
