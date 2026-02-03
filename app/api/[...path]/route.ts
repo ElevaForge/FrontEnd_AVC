@@ -7,7 +7,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'https://bjvzasgfdxlsgvaizrli.sup
 // Prefer a server-side key for proxied requests (service_role). Falls back to
 // NEXT_PUBLIC_SUPABASE_ANON_KEY if set. We will attach this as `apikey` and
 // `Authorization` when forwarding requests to Supabase REST.
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+// Fallback to the project's public anon key if no server key is provided.
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqdnphc2dmZHhsc2d2YWl6cmxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NTYwMzYsImV4cCI6MjA4NDUzMjAzNn0.tJl5zlW3zHhaGnMGjExnM5ll7M9WU6Ds46QKW1p9O_M'
 
 export async function GET(
   request: NextRequest,
@@ -76,12 +80,15 @@ async function proxyRequest(
       headers['Authorization'] = authHeader
     }
 
-    // If a SUPABASE_KEY is configured on the server, attach it so proxied
-    // requests to Supabase REST are authenticated. Do not overwrite an
-    // explicit Authorization header sent by the client.
-    if (SUPABASE_KEY && !authHeader) {
+    // If a SUPABASE_KEY is configured (or fallback anon key), attach it so
+    // proxied requests to Supabase REST include the expected `apikey` header.
+    // Do not overwrite an explicit Authorization header sent by the client,
+    // but always send `apikey` when available because Supabase REST requires it.
+    if (SUPABASE_KEY) {
       headers['apikey'] = SUPABASE_KEY
-      headers['Authorization'] = `Bearer ${SUPABASE_KEY}`
+      if (!headers['Authorization']) {
+        headers['Authorization'] = `Bearer ${SUPABASE_KEY}`
+      }
     }
 
     const response = await fetch(fullUrl, {

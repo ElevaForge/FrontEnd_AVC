@@ -105,6 +105,29 @@ export default function RootLayout({
       </head>
       <body className={`${poppins.variable} ${inter.variable} font-sans antialiased`}>
         {children}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            function serializeError(err){
+              try{ return { message: err && err.message, stack: err && err.stack, name: err && err.name } }catch(e){ return { message: String(err) } }
+            }
+            window.__client_last_error = null;
+            window.addEventListener('error', function(e){
+              try{
+                var info = serializeError(e.error || e.message || 'Unknown error');
+                console.error('Global error captured:', info);
+                window.__client_last_error = info;
+              }catch(err){ console.error('Error serializing global error', err) }
+            });
+            window.addEventListener('unhandledrejection', function(e){
+              try{
+                var reason = e.reason || 'Unhandled rejection';
+                var info = serializeError(reason);
+                console.error('Unhandled rejection captured:', info);
+                window.__client_last_error = info;
+              }catch(err){ console.error('Error serializing rejection', err) }
+            });
+          })();
+        `}} />
         <Toaster position="top-right" />
       </body>
     </html>
