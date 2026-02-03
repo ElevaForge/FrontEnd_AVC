@@ -141,6 +141,18 @@ export function PropertiesManager() {
           }
         }
 
+        // Sanitize and ensure description meets simple constraints to avoid DB check violations
+        try {
+          let desc = propertyData['descripcion'] ?? ''
+          desc = String(desc).replace(/[\u0000-\u001F\u007F]/g, ' ').trim()
+          // Limit length to 1000 chars
+          if (desc.length > 1000) desc = desc.slice(0, 1000)
+          if (!desc) desc = 'Sin descripción'
+          propertyData['descripcion'] = desc
+        } catch (err) {
+          propertyData['descripcion'] = 'Sin descripción'
+        }
+
         const { data, error } = await supabase.from('propiedades').insert(propertyData).select().single()
         if (error || !data) {
           console.error('Error creating property:', error)
