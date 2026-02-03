@@ -239,7 +239,78 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     e.preventDefault()
     setUploading(true)
 
+    // Validaciones cliente para respetar constraints en base de datos
+    const validateForm = (): boolean => {
+      const nombre = String(formData.nombre ?? '').trim()
+      if (nombre.length < 3) {
+        toast.error('El nombre debe tener al menos 3 caracteres')
+        return false
+      }
+
+      const direccion = String(formData.direccion ?? '').trim()
+      if (direccion.length < 5) {
+        toast.error('La dirección debe tener al menos 5 caracteres')
+        return false
+      }
+
+      const descripcion = String(formData.descripcion ?? '').trim()
+      if (descripcion.length < 10) {
+        toast.error('La descripción debe tener al menos 10 caracteres')
+        return false
+      }
+      if (descripcion.length > 5000) {
+        toast.error('La descripción no puede exceder 5000 caracteres')
+        return false
+      }
+
+      const precio = Number(formData.precio ?? 0)
+      if (precio <= 0) {
+        toast.error('El precio debe ser mayor que 0')
+        return false
+      }
+
+      const metros_cuadrados = Number(formData.metros_cuadrados ?? 0)
+      if (metros_cuadrados <= 0) {
+        toast.error('Los metros cuadrados deben ser mayores que 0')
+        return false
+      }
+
+      const metros_construidos = Number(formData.metros_construidos ?? 0)
+      if (metros_construidos <= 0) {
+        toast.error('Los metros construidos deben ser mayores que 0')
+        return false
+      }
+
+      const alcobas = Number(formData.alcobas ?? 0)
+      if (alcobas < 0 || alcobas > 50) {
+        toast.error('Alcobas debe estar entre 0 y 50')
+        return false
+      }
+
+      const banos = Number(formData.banos ?? 0)
+      if (banos < 0 || banos > 50) {
+        toast.error('Baños debe estar entre 0 y 50')
+        return false
+      }
+
+      const parqueaderos = Number(formData.parqueaderos ?? 0)
+      if (parqueaderos < 0 || parqueaderos > 20) {
+        toast.error('Parqueaderos debe estar entre 0 y 20')
+        return false
+      }
+
+      const estrato = formData['estrato'] !== undefined ? Number(formData['estrato']) : undefined
+      if (estrato !== undefined && (estrato < 1 || estrato > 6)) {
+        toast.error('Estrato debe estar entre 1 y 6')
+        return false
+      }
+
+      return true
+    }
+
     try {
+      if (!validateForm()) return
+
       // Pasar todos los datos al manager para que procese
       await onSave(formData, pendingMedia, deletedMediaIds, principalMediaId)
     } catch (error) {
