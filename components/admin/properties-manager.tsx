@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { PropertyFormModal } from "./property-form-modal"
+import { PropertyFormModal, type PendingMediaFile } from "./property-form-modal"
 import { usePropiedades } from "@/hooks/use-propiedades"
 import type { PropiedadCompleta, CategoriaPropiedad } from "@/lib/types"
 import { toast } from "sonner"
 import { apiPost, apiPut, apiDelete } from "@/lib/api"
+import { supabase } from "@/lib/supabase"
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('es-CO', {
@@ -65,7 +66,12 @@ export function PropertiesManager() {
     }
   }
 
-  const handleSaveProperty = async (property: Partial<PropiedadCompleta>) => {
+  const handleSaveProperty = async (
+    property: Partial<PropiedadCompleta>,
+    newMediaFiles: PendingMediaFile[] = [],
+    deletedMediaIds: string[] = [],
+    principalMediaId: string | null = null
+  ) => {
     try {
       // Filtrar solo los campos que el backend acepta y eliminar undefined/null
       const propertyData: Record<string, unknown> = {}
@@ -119,61 +125,124 @@ export function PropertiesManager() {
       
       console.log('Datos a enviar (filtrados):', JSON.stringify(propertyData, null, 2))
       console.log('Es edición:', !!editingProperty?.id)
-      console.log('Imagen a guardar:', property.imagen_principal)
+      console.log('Nuevos archivos multimedia:', newMediaFiles.length)
+      console.log('IDs a eliminar:', deletedMediaIds)
+      console.log('ID principal:', principalMediaId)
       
+      let propertyId: string | undefined
+
       // Si tiene ID, es una edición
       if (editingProperty?.id) {
         const response = await apiPut(`/propiedades/${editingProperty.id}`, propertyData) as any
         
-        console.log('Respuesta del servidor (PUT):', response)
-        console.log('Detalles de validación:', response.details)
-        
         if (response.success) {
+          propertyId = editingProperty.id
           toast.success("Propiedad actualizada exitosamente")
-          setIsModalOpen(false)
-          refetch()
         } else {
           console.error('Error del servidor:', response.error)
-          console.error('Detalles del error:', response.details)
-          
-          // Mostrar detalles específicos del error de validación
           if (response.details && Array.isArray(response.details)) {
             const errorMessages = response.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')
             toast.error(`Error de validación: ${errorMessages}`)
           } else {
             toast.error(response.error || "Error al actualizar la propiedad")
           }
+          return
         }
       } else {
         // Es una creación nueva
         const response = await apiPost<PropiedadCompleta>('/propiedades', propertyData)
         
-        console.log('Respuesta del servidor (POST):', response)
-        
         if (response.success && response.data) {
-          // Si hay imagen, agregarla después de crear la propiedad
-          if (property.imagen_principal && response.data.id) {
-            console.log('Agregando imagen a propiedad:', response.data.id)
-            const imageResponse = await apiPost(`/propiedades/${response.data.id}/imagenes`, {
-              url: property.imagen_principal,
-              es_principal: true,
-              orden: 0
-            })
-            
-            if (!imageResponse.success) {
-              console.error('Error al agregar imagen:', imageResponse.error)
-              toast.warning("Propiedad creada pero la imagen no se pudo agregar")
-            }
-          }
-          
+          propertyId = response.data.id
           toast.success("Propiedad creada exitosamente")
-          setIsModalOpen(false)
-          refetch()
         } else {
           console.error('Error del servidor:', response.error)
           toast.error(response.error || "Error al crear la propiedad")
+          return
         }
       }
+
+      // Procesar multimedia después de crear/actualizar la propiedad
+      if (propertyId) {
+        // 1. Eliminar multimedia marcada para eliminación
+        for (const mediaId of deletedMediaIds) {
+          try {
+            await apiDelete(`/propiedades/${propertyId}/imagenes/${mediaId}`)
+            console.log(`Multimedia ${mediaId} eliminada`)
+          } catch (err) {
+            console.error(`Error eliminando multimedia ${mediaId}:`, err)
+          }
+        }
+
+        // 2. Subir nuevos archivos multimedia
+        let uploadedCount = 0
+        for (let i = 0; i < newMediaFiles.length; i++) {
+          const media = newMediaFiles[i]
+          try {
+            // Subir archivo a Supabase Storage
+            const fileExt = media.file.name.split('.').pop()
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
+            const filePath = `propiedades/${fileName}`
+
+            const { error: uploadError } = await supabase.storage
+              .from('propiedades-imagenes')
+              .upload(filePath, media.file, {
+                cacheControl: '3600',
+                upsert: false
+              })
+
+            if (uploadError) {
+              console.error(`Error subiendo archivo ${media.file.name}:`, uploadError)
+              continue
+            }
+
+            // Obtener URL pública
+            const { data: { publicUrl } } = supabase.storage
+              .from('propiedades-imagenes')
+              .getPublicUrl(filePath)
+
+            // Determinar si es principal
+            const esPrincipal = principalMediaId === media.id
+
+            // Registrar en la base de datos
+            const mediaResponse = await apiPost(`/propiedades/${propertyId}/imagenes`, {
+              url: publicUrl,
+              tipo_archivo: media.type,
+              es_principal: esPrincipal,
+              orden: uploadedCount,
+            })
+
+            if (mediaResponse.success) {
+              uploadedCount++
+              console.log(`Multimedia ${media.file.name} subida correctamente`)
+            } else {
+              console.error(`Error registrando multimedia ${media.file.name}:`, mediaResponse.error)
+            }
+          } catch (err) {
+            console.error(`Error procesando multimedia ${media.file.name}:`, err)
+          }
+        }
+
+        if (uploadedCount > 0) {
+          toast.success(`${uploadedCount} archivo(s) multimedia subidos`)
+        }
+
+        // 3. Actualizar imagen principal si cambió a una existente
+        if (principalMediaId && !principalMediaId.startsWith('pending-')) {
+          try {
+            // Es una imagen existente, actualizar su estado de principal
+            await apiPut(`/propiedades/${propertyId}/imagenes/${principalMediaId}`, {
+              es_principal: true
+            })
+            console.log(`Imagen ${principalMediaId} establecida como principal`)
+          } catch (err) {
+            console.error('Error actualizando imagen principal:', err)
+          }
+        }
+      }
+
+      setIsModalOpen(false)
+      refetch()
     } catch (error) {
       console.error('Error saving property:', error)
       toast.error("Error al guardar la propiedad")

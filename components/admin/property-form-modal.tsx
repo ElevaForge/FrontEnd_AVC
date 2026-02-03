@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Upload, Trash2 } from "lucide-react"
+import { X, Upload, Trash2, Star, Play, Image as ImageIcon, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { type PropiedadCompleta, type CategoriaPropiedad, type EstadoPropiedad } from "@/lib/types"
-import { supabase } from "@/lib/supabase"
+import { type PropiedadCompleta, type CategoriaPropiedad, type EstadoPropiedad, type ImagenPropiedad } from "@/lib/types"
+import { apiGet } from "@/lib/api"
 import { toast } from "sonner"
 import {
   Select,
@@ -17,10 +17,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+// Tipo para archivos nuevos pendientes de subir
+export interface PendingMediaFile {
+  id: string
+  file: File
+  preview: string
+  type: 'image' | 'video'
+}
+
+// Tipo para archivos existentes en la base de datos
+interface ExistingMedia extends ImagenPropiedad {
+  tipo_archivo?: 'image' | 'video'
+}
+
 interface PropertyFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (property: Partial<PropiedadCompleta>) => void
+  onSave: (property: Partial<PropiedadCompleta>, newMediaFiles: PendingMediaFile[], deletedMediaIds: string[], principalMediaId: string | null) => void
   property: PropiedadCompleta | null
 }
 
@@ -44,9 +57,78 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
   }
 
   const [formData, setFormData] = useState<Partial<PropiedadCompleta>>(getInitialFormData)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string>(property?.imagen_principal || "")
+  // Media existente de la propiedad (cargado desde BD)
+  const [existingMedia, setExistingMedia] = useState<ExistingMedia[]>([])
+  // Media nueva pendiente de subir
+  const [pendingMedia, setPendingMedia] = useState<PendingMediaFile[]>([])
+  // IDs de media existente que se eliminará
+  const [deletedMediaIds, setDeletedMediaIds] = useState<string[]>([])
+  // ID de la imagen principal (puede ser existente o pendiente)
+  const [principalMediaId, setPrincipalMediaId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [loadingMedia, setLoadingMedia] = useState(false)
+
+  // Cargar media existente cuando se edita una propiedad
+  useEffect(() => {
+    if (isOpen && property?.id) {
+      loadExistingMedia(property.id)
+    } else if (isOpen && !property) {
+      // Reset estado para nueva propiedad
+      setExistingMedia([])
+      setPendingMedia([])
+      setDeletedMediaIds([])
+      setPrincipalMediaId(null)
+    }
+  }, [isOpen, property?.id])
+
+  // Resetear formulario cuando cambia la propiedad
+  useEffect(() => {
+    setFormData(getInitialFormData())
+  }, [property])
+
+  const loadExistingMedia = async (propertyId: string) => {
+    setLoadingMedia(true)
+    try {
+      // Cargar desde la propiedad si ya tiene imágenes
+      if (property?.imagenes && property.imagenes.length > 0) {
+        const mediaWithType: ExistingMedia[] = property.imagenes.map(img => ({
+          ...img,
+          tipo_archivo: detectMediaType(img.url)
+        }))
+        setExistingMedia(mediaWithType)
+        // Establecer la imagen principal
+        const principal = mediaWithType.find(m => m.es_principal)
+        if (principal) {
+          setPrincipalMediaId(principal.id)
+        }
+      } else {
+        // Intentar cargar desde API
+        const response = await apiGet<ImagenPropiedad[]>(`/propiedades/${propertyId}/imagenes`)
+        if (response.success && response.data) {
+          const mediaWithType: ExistingMedia[] = response.data.map(img => ({
+            ...img,
+            tipo_archivo: detectMediaType(img.url)
+          }))
+          setExistingMedia(mediaWithType)
+          const principal = mediaWithType.find(m => m.es_principal)
+          if (principal) {
+            setPrincipalMediaId(principal.id)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading existing media:', error)
+    } finally {
+      setLoadingMedia(false)
+    }
+  }
+
+  // Detectar tipo de archivo por extensión de URL
+  const detectMediaType = (url: string): 'image' | 'video' => {
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv']
+    const lowerUrl = url.toLowerCase()
+    return videoExtensions.some(ext => lowerUrl.includes(ext)) ? 'video' : 'image'
+  }
 
   // Helper function to handle numeric input - allows only numbers and empty values
   const handleNumericInput = (value: string, field: keyof PropiedadCompleta) => {
@@ -66,36 +148,91 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     }
   }
 
-  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
-    try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
-      const filePath = `propiedades/${fileName}`
+  // Agregar nuevos archivos multimedia
+  const handleAddMedia = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,video/*'
+    input.multiple = true
 
-      const { data, error } = await supabase.storage
-        .from('propiedades-imagenes')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files
+      if (!files || files.length === 0) return
+
+      const newPendingMedia: PendingMediaFile[] = []
+
+      Array.from(files).forEach(file => {
+        const isVideo = file.type.startsWith('video/')
+        const maxSize = isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024
+
+        if (file.size > maxSize) {
+          toast.error(`${file.name}: ${isVideo ? 'Video no debe superar 50MB' : 'Imagen no debe superar 5MB'}`)
+          return
+        }
+
+        const id = `pending-${Math.random().toString(36).substring(2)}-${Date.now()}`
+        const preview = URL.createObjectURL(file)
+
+        newPendingMedia.push({
+          id,
+          file,
+          preview,
+          type: isVideo ? 'video' : 'image'
         })
+      })
 
-      if (error) {
-        console.error('Error uploading image:', error)
-        toast.error(`Error al subir imagen: ${error.message}`)
-        return null
+      if (newPendingMedia.length > 0) {
+        setPendingMedia(prev => [...prev, ...newPendingMedia])
+        
+        // Si no hay principal seleccionado, establecer la primera imagen como principal
+        if (!principalMediaId && existingMedia.length === 0 && pendingMedia.length === 0) {
+          const firstImage = newPendingMedia.find(m => m.type === 'image')
+          if (firstImage) {
+            setPrincipalMediaId(firstImage.id)
+          }
+        }
       }
-
-      // Obtener URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from('propiedades-imagenes')
-        .getPublicUrl(filePath)
-
-      return publicUrl
-    } catch (error) {
-      console.error('Error uploading image:', error)
-      toast.error('Error al subir la imagen')
-      return null
     }
+
+    input.click()
+  }
+
+  // Eliminar media existente (marcar para eliminación)
+  const handleDeleteExistingMedia = (mediaId: string) => {
+    setDeletedMediaIds(prev => [...prev, mediaId])
+    const remainingExisting = existingMedia.filter(m => m.id !== mediaId)
+    setExistingMedia(remainingExisting)
+    
+    // Si era la principal, resetear
+    if (principalMediaId === mediaId) {
+      const firstRemaining = remainingExisting.find(m => m.tipo_archivo === 'image') || pendingMedia.find(m => m.type === 'image')
+      setPrincipalMediaId(firstRemaining?.id || null)
+    }
+  }
+
+  // Eliminar media pendiente (no subida aún)
+  const handleDeletePendingMedia = (mediaId: string) => {
+    const media = pendingMedia.find(m => m.id === mediaId)
+    if (media) {
+      URL.revokeObjectURL(media.preview)
+    }
+    const remainingPending = pendingMedia.filter(m => m.id !== mediaId)
+    setPendingMedia(remainingPending)
+    
+    // Si era la principal, resetear
+    if (principalMediaId === mediaId) {
+      const firstRemaining = existingMedia.find(m => m.tipo_archivo === 'image') || remainingPending.find(m => m.type === 'image')
+      setPrincipalMediaId(firstRemaining?.id || null)
+    }
+  }
+
+  // Establecer como imagen principal (solo imágenes, no videos)
+  const handleSetPrincipal = (mediaId: string, isVideo: boolean) => {
+    if (isVideo) {
+      toast.error('Solo las imágenes pueden ser establecidas como principal')
+      return
+    }
+    setPrincipalMediaId(mediaId)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,24 +240,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     setUploading(true)
 
     try {
-      let imagenUrl = formData.imagen_principal
-
-      // Si hay una nueva imagen seleccionada, subirla primero
-      if (imageFile) {
-        const uploadedUrl = await uploadImageToSupabase(imageFile)
-        if (uploadedUrl) {
-          imagenUrl = uploadedUrl
-        } else {
-          setUploading(false)
-          return // No continuar si falló la subida
-        }
-      }
-
-      // Guardar la propiedad con la URL de la imagen
-      await onSave({
-        ...formData,
-        imagen_principal: imagenUrl
-      })
+      // Pasar todos los datos al manager para que procese
+      await onSave(formData, pendingMedia, deletedMediaIds, principalMediaId)
     } catch (error) {
       console.error('Error submitting form:', error)
       toast.error('Error al guardar la propiedad')
@@ -129,48 +250,29 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     }
   }
 
-  const handleImageSelect = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-      
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('La imagen no debe superar los 5MB')
-        return
-      }
-
-      // Guardar el archivo para subirlo después
-      setImageFile(file)
-      
-      // Crear preview
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const result = event.target?.result as string
-        if (result) {
-          setImagePreview(result)
-        }
-      }
-      reader.readAsDataURL(file)
-    }
-    
-    input.click()
+  // Limpiar al cerrar
+  const handleClose = () => {
+    // Limpiar URLs de objeto para liberar memoria
+    pendingMedia.forEach(m => URL.revokeObjectURL(m.preview))
+    setPendingMedia([])
+    setExistingMedia([])
+    setDeletedMediaIds([])
+    setPrincipalMediaId(null)
+    onClose()
   }
 
   if (!isOpen) return null
 
+  const totalMedia = existingMedia.length + pendingMedia.length
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4">
       <div className="bg-card rounded-xl md:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-2xl font-bold text-foreground">
             {property ? "Editar Propiedad" : "Nueva Propiedad"}
           </h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={handleClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -371,44 +473,215 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
             </div>
           </div>
 
-          {/* Imagen Principal */}
-          <div className="space-y-1.5 md:space-y-2">
-            <Label className="text-sm">Imagen Principal</Label>
-            <div className="flex flex-col gap-3 md:gap-4">
-              {imagePreview ? (
-                <div className="relative rounded-lg overflow-hidden bg-muted max-w-xs">
-                  <img src={imagePreview} alt="Preview" className="w-full h-auto object-cover" />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      setImagePreview("")
-                      setImageFile(null)
-                      setFormData({ ...formData, imagen_principal: "" })
-                    }}
+          {/* Galería Multimedia - CRUD Completo */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Galería Multimedia ({totalMedia} archivos)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddMedia}
+                className="gap-1"
+              >
+                <Plus className="h-4 w-4" />
+                Agregar
+              </Button>
+            </div>
+            
+            {loadingMedia ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : totalMedia === 0 ? (
+              <button
+                type="button"
+                onClick={handleAddMedia}
+                className="w-full aspect-video max-w-md rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 flex flex-col items-center justify-center gap-2 transition-colors"
+              >
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Agregar Fotos o Videos</span>
+                <span className="text-xs text-muted-foreground">Imagen: máx 5MB · Video: máx 50MB</span>
+              </button>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {/* Media existente */}
+                {existingMedia.map((media) => (
+                  <div 
+                    key={media.id} 
+                    className={`relative group rounded-lg overflow-hidden bg-muted aspect-square border-2 ${
+                      principalMediaId === media.id ? 'border-yellow-500' : 'border-transparent'
+                    }`}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
+                    {media.tipo_archivo === 'video' ? (
+                      <div className="w-full h-full relative">
+                        <video 
+                          src={media.url} 
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Play className="h-8 w-8 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <img 
+                        src={media.url_thumbnail || media.url} 
+                        alt={media.titulo || 'Imagen'} 
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    
+                    {/* Overlay con acciones */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {media.tipo_archivo !== 'video' && (
+                        <Button
+                          type="button"
+                          variant={principalMediaId === media.id ? "default" : "secondary"}
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleSetPrincipal(media.id, false)}
+                          title="Establecer como principal"
+                        >
+                          <Star className={`h-4 w-4 ${principalMediaId === media.id ? 'fill-current' : ''}`} />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteExistingMedia(media.id)}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Badge de tipo */}
+                    <div className="absolute top-1 left-1">
+                      {media.tipo_archivo === 'video' ? (
+                        <span className="bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Play className="h-3 w-3" /> Video
+                        </span>
+                      ) : (
+                        <span className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <ImageIcon className="h-3 w-3" /> Foto
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Indicador de principal */}
+                    {principalMediaId === media.id && (
+                      <div className="absolute top-1 right-1">
+                        <span className="bg-yellow-500 text-black text-xs px-1.5 py-0.5 rounded flex items-center gap-1 font-medium">
+                          <Star className="h-3 w-3 fill-current" /> Principal
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Media pendiente de subir */}
+                {pendingMedia.map((media) => (
+                  <div 
+                    key={media.id} 
+                    className={`relative group rounded-lg overflow-hidden bg-muted aspect-square border-2 ${
+                      principalMediaId === media.id ? 'border-yellow-500' : 'border-dashed border-primary/50'
+                    }`}
+                  >
+                    {media.type === 'video' ? (
+                      <div className="w-full h-full relative">
+                        <video 
+                          src={media.preview} 
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Play className="h-8 w-8 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <img 
+                        src={media.preview} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    
+                    {/* Overlay con acciones */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {media.type !== 'video' && (
+                        <Button
+                          type="button"
+                          variant={principalMediaId === media.id ? "default" : "secondary"}
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleSetPrincipal(media.id, false)}
+                          title="Establecer como principal"
+                        >
+                          <Star className={`h-4 w-4 ${principalMediaId === media.id ? 'fill-current' : ''}`} />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDeletePendingMedia(media.id)}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Badge de tipo y estado */}
+                    <div className="absolute top-1 left-1 flex gap-1">
+                      {media.type === 'video' ? (
+                        <span className="bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Play className="h-3 w-3" /> Video
+                        </span>
+                      ) : (
+                        <span className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <ImageIcon className="h-3 w-3" /> Foto
+                        </span>
+                      )}
+                      <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded">
+                        Nuevo
+                      </span>
+                    </div>
+
+                    {/* Indicador de principal */}
+                    {principalMediaId === media.id && (
+                      <div className="absolute top-1 right-1">
+                        <span className="bg-yellow-500 text-black text-xs px-1.5 py-0.5 rounded flex items-center gap-1 font-medium">
+                          <Star className="h-3 w-3 fill-current" /> Principal
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Botón para agregar más */}
                 <button
                   type="button"
-                  onClick={handleImageSelect}
-                  className="w-full max-w-xs aspect-video rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 flex flex-col items-center justify-center gap-1.5 md:gap-2 transition-colors"
+                  onClick={handleAddMedia}
+                  className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 flex flex-col items-center justify-center gap-1 transition-colors"
                 >
-                  <Upload className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
-                  <span className="text-xs md:text-sm text-muted-foreground">Seleccionar Imagen</span>
-                  <span className="text-xs text-muted-foreground">Máximo 5MB</span>
+                  <Plus className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Agregar</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Haz clic en la estrella para establecer la imagen principal. Los videos no pueden ser imagen principal.
+            </p>
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col-reverse sm:flex-row gap-2 md:gap-3 justify-end pt-3 md:pt-4 border-t border-border sticky bottom-0 bg-card pb-2 md:pb-0">
-            <Button type="button" variant="outline" onClick={onClose} disabled={uploading} className="w-full sm:w-auto text-sm md:text-base h-9 md:h-10">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 md:gap-3 justify-end pt-3 md:pt-4 border-t border-border sticky bottom-0 bg-card pb-2 md:pb-0 z-10">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={uploading} className="w-full sm:w-auto text-sm md:text-base h-9 md:h-10">
               Cancelar
             </Button>
             <Button 
@@ -419,7 +692,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               {uploading ? (
                 <>
                   <div className="animate-spin rounded-full h-3 w-3 md:h-4 md:w-4 border-b-2 border-white mr-2"></div>
-                  <span className="text-sm md:text-base">Subiendo...</span>
+                  <span className="text-sm md:text-base">Guardando...</span>
                 </>
               ) : (
                 <span className="text-sm md:text-base">{property ? "Guardar Cambios" : "Crear Propiedad"}</span>

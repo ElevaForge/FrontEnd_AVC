@@ -117,7 +117,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader onLogout={logout} onNavigate={handleNavigate} />
+      <AdminHeader onLogout={logout} onNavigate={handleNavigate} user={user} />
       
       <div className="flex pt-16 md:pt-[73px]">
         <AdminSidebar currentView={currentView} onViewChange={setCurrentView} />

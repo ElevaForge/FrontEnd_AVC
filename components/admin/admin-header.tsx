@@ -13,13 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import type { User } from "@supabase/supabase-js"
 
 interface AdminHeaderProps {
   onLogout: () => void
   onNavigate?: (section: string) => void
+  user?: User | null
 }
 
-export function AdminHeader({ onLogout, onNavigate }: AdminHeaderProps) {
+export function AdminHeader({ onLogout, onNavigate, user }: AdminHeaderProps) {
   const { solicitudes } = useSolicitudes()
   const [open, setOpen] = useState(false)
   
@@ -126,16 +128,16 @@ export function AdminHeader({ onLogout, onNavigate }: AdminHeaderProps) {
           
           <div className="hidden md:flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-medium text-white">Administrador</p>
-              <p className="text-xs text-white/70">admin@avc.com</p>
+              <p className="text-sm font-medium text-white">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuario'}</p>
+              <p className="text-xs text-white/70">{user?.email || ''}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center shadow-md">
-              <span className="text-white font-semibold">A</span>
+              <span className="text-white font-semibold">{(user?.user_metadata?.name || user?.email || 'U')[0].toUpperCase()}</span>
             </div>
           </div>
           
           <div className="md:hidden h-8 w-8 rounded-full bg-secondary flex items-center justify-center shadow-md">
-            <span className="text-white text-sm font-semibold">A</span>
+            <span className="text-white text-sm font-semibold">{(user?.user_metadata?.name || user?.email || 'U')[0].toUpperCase()}</span>
           </div>
           
           <Button 
