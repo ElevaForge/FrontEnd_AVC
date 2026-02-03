@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { apiGet } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import type { PropiedadCompleta, PropiedadesQuery } from '@/lib/types'
 
 export function usePropiedades(filters: PropiedadesQuery = {}) {
@@ -17,29 +17,27 @@ export function usePropiedades(filters: PropiedadesQuery = {}) {
       setError(null)
 
       try {
-        // Construir query params
-        const params = new URLSearchParams()
+        // Construir la consulta con filtros simples (eq)
+        let query = supabase.from('propiedades').select('*')
+
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
-            params.append(key, String(value))
+            query = query.eq(key, value as any)
           }
         })
 
-        const endpoint = `/propiedades${params.toString() ? `?${params.toString()}` : ''}`
-        const response = await apiGet<PropiedadCompleta[]>(endpoint)
+        const { data, error } = await query.order('created_at', { ascending: false })
 
-        if (response.success && response.data) {
-          setPropiedades(response.data)
-          // Extraer total del mensaje si está disponible
-          if (response.message && response.message.startsWith('Total:')) {
-            const totalStr = response.message.replace('Total:', '').trim()
-            setTotal(parseInt(totalStr) || 0)
-          } else {
-            setTotal(response.data.length)
-          }
-        } else {
-          setError(response.error || 'Error al cargar propiedades')
+        if (error) {
+          console.error('Supabase fetch error:', error)
+          setError(error.message)
           setPropiedades([])
+        } else if (data) {
+          setPropiedades(data as PropiedadCompleta[])
+          setTotal((data as any).length || 0)
+        } else {
+          setPropiedades([])
+          setTotal(0)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error desconocido')
