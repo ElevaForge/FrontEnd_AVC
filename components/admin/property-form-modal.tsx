@@ -276,8 +276,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
       }
 
       const metros_construidos = Number(formData.metros_construidos ?? 0)
-      if (metros_construidos <= 0) {
-        toast.error('Los metros construidos deben ser mayores que 0')
+      if (metros_construidos < 0) {
+        toast.error('Los metros construidos no pueden ser negativos')
         return false
       }
 
