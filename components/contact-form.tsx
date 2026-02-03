@@ -134,10 +134,19 @@ export function ContactForm({ type }: ContactFormProps) {
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
+      // Mapear tipo_servicio a valores válidos del enum en la BD
+      // Los valores válidos son: Renovacion, Construccion, Venta, Arriendo
+      const tipoServicioMap: Record<string, string> = {
+        'renovacion': 'Renovacion',
+        'construccion': 'Construccion',
+        'vender': 'Venta',
+        'arrendar': 'Arriendo',
+      }
+
       // Crear solicitud directamente en Supabase
       const solicitudData = {
         tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
-        tipo_servicio: formData.tipoServicio,
+        tipo_servicio: tipoServicioMap[formData.tipoServicio] || formData.tipoServicio,
         nombre_persona: formData.nombre,
         email: email || null,
         telefono: telefono || formData.contacto,
