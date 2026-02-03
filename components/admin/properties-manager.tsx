@@ -10,6 +10,7 @@ import { PropertyFormModal, type PendingMediaFile } from "./property-form-modal"
 import { usePropiedades } from "@/hooks/use-propiedades"
 import type { PropiedadCompleta, CategoriaPropiedad } from "@/lib/types"
 import { toast } from "sonner"
+import { apiDelete } from "@/lib/api"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 
