@@ -34,10 +34,9 @@ export function PropertiesSection() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   
-  // Fetch properties from backend
+  // Fetch properties from backend (solo filtra por categoría, RLS se encarga de mostrar solo las activas)
   const { propiedades, loading } = usePropiedades({
     categoria: activeCategory,
-    destacada: true,
   })
   
   const filteredProperties = propiedades || []
