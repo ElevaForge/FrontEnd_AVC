@@ -122,6 +122,25 @@ export function PropertiesManager() {
         propertyId = editingProperty.id
         toast.success('Propiedad actualizada exitosamente')
       } else {
+        // Ensure owner is set so RLS policies that check ownership pass
+        if (!propertyData['owner_id']) propertyData['owner_id'] = user.id
+
+        // Fill defaults for numeric NOT NULL columns to avoid DB constraint errors
+        const numericDefaults: Record<string, number> = {
+          alcobas: 0,
+          banos: 0,
+          parqueaderos: 0,
+          metros_cuadrados: 0,
+          metros_construidos: 0,
+          precio: 0,
+          precio_administracion: 0,
+        }
+        for (const [key, val] of Object.entries(numericDefaults)) {
+          if (propertyData[key] === undefined || propertyData[key] === null) {
+            propertyData[key] = val
+          }
+        }
+
         const { data, error } = await supabase.from('propiedades').insert(propertyData).select().single()
         if (error || !data) {
           console.error('Error creating property:', error)
