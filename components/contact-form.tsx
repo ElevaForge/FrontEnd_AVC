@@ -137,13 +137,13 @@ export function ContactForm({ type }: ContactFormProps) {
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
-      // Mapear tipo_servicio a valores válidos del enum en la BD
-      // Los valores válidos son: Renovacion, Construccion, Venta, Arriendo
+      // Mapear tipo_servicio a los valores esperados por la BD (usar minúsculas)
+      // Valores esperados: renovacion, construccion, venta, arriendo
       const tipoServicioMap: Record<string, string> = {
-        'renovacion': 'Renovacion',
-        'construccion': 'Construccion',
-        'vender': 'Venta',
-        'arrendar': 'Arriendo',
+        'renovacion': 'renovacion',
+        'construccion': 'construccion',
+        'vender': 'venta',
+        'arrendar': 'arriendo',
       }
 
       // Crear solicitud directamente en Supabase
@@ -165,15 +165,20 @@ export function ContactForm({ type }: ContactFormProps) {
         estado: "Pendiente",
       }
 
-      // Validar y combinar fecha + hora a ISO
+      // Validar y combinar fecha + hora creando la fecha en hora local
       if (!formData.fecha || !formData.hora) {
         throw new Error('Debes seleccionar fecha y hora para la visita')
       }
-      const fechaIso = `${formData.fecha}T${formData.hora}`
-      const selected = new Date(fechaIso)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (selected < today) {
+
+      const [y, m, d] = formData.fecha.split('-').map(Number)
+      const [hh, mm] = formData.hora.split(':').map(Number)
+      const selected = new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0)
+
+      if (isNaN(selected.getTime())) {
+        throw new Error('Fecha u hora inválida')
+      }
+
+      if (selected.getTime() <= Date.now()) {
         throw new Error('La fecha y hora deben ser futuras')
       }
 
