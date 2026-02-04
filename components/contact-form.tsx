@@ -137,13 +137,13 @@ export function ContactForm({ type }: ContactFormProps) {
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
-      // Mapear tipo_servicio a los valores esperados por la BD (usar minúsculas)
-      // Valores esperados: renovacion, construccion, venta, arriendo
+      // Mapear tipo_servicio a los valores canónicos esperados por la BD
+      // Valores canónicos: Renovacion, Construccion, Venta, Arriendo
       const tipoServicioMap: Record<string, string> = {
-        'renovacion': 'renovacion',
-        'construccion': 'construccion',
-        'vender': 'venta',
-        'arrendar': 'arriendo',
+        'renovacion': 'Renovacion',
+        'construccion': 'Construccion',
+        'vender': 'Venta',
+        'arrendar': 'Arriendo',
       }
 
       // Crear solicitud directamente en Supabase
