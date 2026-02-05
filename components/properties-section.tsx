@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { CategoryCard } from "./category-card"
 import { PropertyCard } from "./property-card"
@@ -28,11 +28,35 @@ const categories: {
   { title: "Lotes/Finca", description: "Terrenos y fincas para construir tu proyecto", icon: "lote", value: "Lotes/Finca" },
 ]
 
+// Hook para obtener el número de tarjetas visibles según el tamaño de pantalla
+function useVisibleCards() {
+  const [visibleCards, setVisibleCards] = useState(3)
+
+  useEffect(() => {
+    const updateVisibleCards = () => {
+      if (window.innerWidth < 640) {
+        setVisibleCards(1) // mobile
+      } else if (window.innerWidth < 1024) {
+        setVisibleCards(2) // tablet
+      } else {
+        setVisibleCards(3) // desktop
+      }
+    }
+
+    updateVisibleCards()
+    window.addEventListener('resize', updateVisibleCards)
+    return () => window.removeEventListener('resize', updateVisibleCards)
+  }, [])
+
+  return visibleCards
+}
+
 export function PropertiesSection() {
   const [activeCategory, setActiveCategory] = useState<Category>("Vivienda")
   const [selectedProperty, setSelectedProperty] = useState<PropiedadCompleta | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const visibleCards = useVisibleCards()
   
   // Fetch properties from backend (solo filtra por categoría, RLS se encarga de mostrar solo las activas)
   const { propiedades, loading } = usePropiedades({
@@ -41,13 +65,23 @@ export function PropertiesSection() {
   
   const filteredProperties = propiedades || []
 
-  const scrollPrev = () => {
-    setCurrentIndex((prev) => Math.max(0, prev - 1))
-  }
+  // Calcular el índice máximo basado en tarjetas visibles
+  const maxIndex = Math.max(0, filteredProperties.length - visibleCards)
 
-  const scrollNext = () => {
-    setCurrentIndex((prev) => Math.min(filteredProperties.length - 1, prev + 1))
-  }
+  // Asegurar que currentIndex no exceda maxIndex cuando cambian las propiedades
+  useEffect(() => {
+    if (currentIndex > maxIndex) {
+      setCurrentIndex(maxIndex)
+    }
+  }, [currentIndex, maxIndex])
+
+  const scrollPrev = useCallback(() => {
+    setCurrentIndex((prev) => Math.max(0, prev - 1))
+  }, [])
+
+  const scrollNext = useCallback(() => {
+    setCurrentIndex((prev) => Math.min(maxIndex, prev + 1))
+  }, [maxIndex])
 
   const openModal = (property: PropiedadCompleta) => {
     setSelectedProperty(property)
@@ -99,25 +133,29 @@ export function PropertiesSection() {
           </div>
         ) : (
           <div className="relative">
-            {/* Navigation Buttons */}
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
-              onClick={scrollPrev}
-              disabled={currentIndex === 0}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
-              onClick={scrollNext}
-              disabled={currentIndex >= filteredProperties.length - 1}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+            {/* Navigation Buttons - Solo mostrar si hay más propiedades que las visibles */}
+            {filteredProperties.length > visibleCards && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
+                  onClick={scrollPrev}
+                  disabled={currentIndex === 0}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
+                  onClick={scrollNext}
+                  disabled={currentIndex >= maxIndex}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </>
+            )}
 
             {/* Carousel - using CSS scroll */}
             <div className="overflow-hidden">
@@ -133,18 +171,20 @@ export function PropertiesSection() {
               </div>
             </div>
 
-            {/* Mobile Navigation Dots */}
-            <div className="flex justify-center gap-2 mt-6 md:hidden">
-              {filteredProperties.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentIndex(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    index === currentIndex ? "bg-primary" : "bg-primary/30"
-                  }`}
-                />
-              ))}
-            </div>
+            {/* Mobile Navigation Dots - Solo mostrar si hay más propiedades que las visibles */}
+            {filteredProperties.length > visibleCards && (
+              <div className="flex justify-center gap-2 mt-6 md:hidden">
+                {Array.from({ length: maxIndex + 1 }).map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentIndex ? "bg-primary" : "bg-primary/30"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 

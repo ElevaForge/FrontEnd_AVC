@@ -124,15 +124,15 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
         </button>
 
         <div className="overflow-y-auto max-h-[90vh]">
-          {/* Image Gallery - using img instead of next/image */}
-          <div className="relative aspect-video">
+          {/* Image Gallery - usando contenedor flexible para mostrar imagen completa */}
+          <div className="relative w-full min-h-[300px] max-h-[60vh] bg-black flex items-center justify-center">
             {(() => {
               const url = images[currentImageIndex] || "/placeholder.svg?height=400&width=600&query=property interior"
               const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.includes('video')
               return isVideo ? (
-                <video className="w-full h-full object-cover" src={url} controls playsInline />
+                <video className="max-w-full max-h-[60vh] object-contain" src={url} controls playsInline />
               ) : (
-                <img src={url} alt={property.nombre} className="w-full h-full object-cover" />
+                <img src={url} alt={property.nombre} className="max-w-full max-h-[60vh] object-contain" />
               )
             })()}
 

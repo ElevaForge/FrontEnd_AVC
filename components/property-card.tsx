@@ -33,27 +33,28 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
 
   return (
     <div
-      className="group bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
+      className="group bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
       onClick={onClick}
     >
-      {/* Image - using img instead of next/image for simplicity */}
-      <div className="relative aspect-video overflow-hidden">
+      {/* Image Container - altura flexible que se adapta a la imagen */}
+      <div className="relative w-full min-h-[200px] max-h-[350px] bg-muted flex items-center justify-center overflow-hidden">
         <img
           src={property.imagen_principal || "/placeholder.svg?height=300&width=400&query=property"}
           alt={property.nombre}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-auto max-h-[350px] object-contain transition-transform duration-300 group-hover:scale-105"
+          style={{ display: 'block' }}
         />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none" />
 
         {/* Category Badge */}
-        <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
+        <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground z-10">
           {property.categoria.replace('_', '/')}
         </Badge>
 
         {/* Status Badge */}
         <Badge
           className={cn(
-            "absolute top-3 right-3",
+            "absolute top-3 right-3 z-10",
             property.estado === "Disponible" && "bg-green-500 text-white",
             property.estado === "Reservada" && "bg-yellow-500 text-white",
             property.estado === "Vendida" && "bg-red-500 text-white",
