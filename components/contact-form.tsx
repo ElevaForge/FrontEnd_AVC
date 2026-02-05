@@ -32,7 +32,8 @@ interface FormErrors {
   descripcion?: string
   nombre?: string
   contacto?: string
-  fechaVisita?: string
+  fecha?: string
+  hora?: string
 }
 
 export function ContactForm({ type }: ContactFormProps) {
@@ -43,7 +44,7 @@ export function ContactForm({ type }: ContactFormProps) {
     contacto: "",
     fecha: "",
     hora: "",
-    tipoServicio: type === "remodelacion" ? "renovacion" : "vender",
+    tipoServicio: type === "remodelacion" ? "remodelacion" : "vender",
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -138,12 +139,12 @@ export function ContactForm({ type }: ContactFormProps) {
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
       // Mapear tipo_servicio a los valores canónicos esperados por la BD
-      // Valores canónicos: Renovacion, Construccion, Venta, Arriendo
+      // Valores del enum tipo_servicio: Comprar, Arrendar, Vender, Renovacion
       const tipoServicioMap: Record<string, string> = {
-        'renovacion': 'Renovacion',
-        'construccion': 'Construccion',
-        'vender': 'Venta',
-        'arrendar': 'Arriendo',
+        'remodelacion': 'Renovacion',
+        'construccion': 'Renovacion',
+        'vender': 'Vender',
+        'arrendar': 'Arrendar',
       }
 
       // Crear solicitud directamente en Supabase
@@ -154,7 +155,7 @@ export function ContactForm({ type }: ContactFormProps) {
         ? `${formData.descripcion}\n\nServicio seleccionado: ${formData.tipoServicio}`
         : `Servicio seleccionado: ${formData.tipoServicio}`
 
-      const solicitudData = {
+      const solicitudData: Record<string, string | null> = {
         tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
         tipo_servicio: mappedTipoServicio || null,
         nombre_persona: formData.nombre,
@@ -183,6 +184,7 @@ export function ContactForm({ type }: ContactFormProps) {
       }
 
       solicitudData['fecha_visita_preferida'] = selected.toISOString()
+      solicitudData['hora_preferida'] = formData.hora
 
       const { error } = await supabase.from('solicitudes').insert(solicitudData)
 
@@ -206,7 +208,7 @@ export function ContactForm({ type }: ContactFormProps) {
         contacto: "",
         fecha: "",
         hora: "",
-        tipoServicio: type === "remodelacion" ? "renovacion" : "vender",
+        tipoServicio: type === "remodelacion" ? "remodelacion" : "vender",
       })
       setTouched({})
       setErrors({})
@@ -402,9 +404,9 @@ export function ContactForm({ type }: ContactFormProps) {
           {type === "remodelacion" ? (
             <>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="renovacion" id={`${type}-renovacion`} />
-                <Label htmlFor={`${type}-renovacion`} className="cursor-pointer">
-                  Renovación
+                <RadioGroupItem value="remodelacion" id={`${type}-remodelacion`} />
+                <Label htmlFor={`${type}-remodelacion`} className="cursor-pointer">
+                  Remodelación
                 </Label>
               </div>
               <div className="flex items-center space-x-2">

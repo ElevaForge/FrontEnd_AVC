@@ -247,7 +247,7 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
                     <Maximize className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Área</p>
+                    <p className="text-sm text-muted-foreground">m² Lote</p>
                     <p className="font-semibold text-card-foreground">{property.metros_cuadrados} m²</p>
                   </div>
                 </div>

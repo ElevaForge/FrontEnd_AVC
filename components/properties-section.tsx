@@ -25,7 +25,7 @@ const categories: {
     value: "Apartamento",
   },
   { title: "Local/Oficina", description: "Espacios comerciales y oficinas", icon: "local", value: "Local/Oficina" },
-  { title: "Lote", description: "Terrenos para construir tu proyecto", icon: "lote", value: "Lote" },
+  { title: "Lotes/Finca", description: "Terrenos y fincas para construir tu proyecto", icon: "lote", value: "Lotes/Finca" },
 ]
 
 export function PropertiesSection() {

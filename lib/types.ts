@@ -3,7 +3,7 @@
  */
 
 // Enums
-export type CategoriaPropiedad = 'Vivienda' | 'Apartamento' | 'Local/Oficina' | 'Lote'
+export type CategoriaPropiedad = 'Vivienda' | 'Apartamento' | 'Local/Oficina' | 'Lotes/Finca'
 export type TipoAccion = 'Venta' | 'Arriendo'
 export type EstadoPropiedad = 'Disponible' | 'Vendida' | 'Arrendada' | 'Reservada'
 export type TipoSolicitud = 'Informacion' | 'Visita' | 'Remodelacion' | 'Venta'

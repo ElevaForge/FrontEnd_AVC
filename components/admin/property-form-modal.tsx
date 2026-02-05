@@ -377,7 +377,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                   <SelectItem value="Vivienda">Vivienda</SelectItem>
                   <SelectItem value="Apartamento">Apartamento</SelectItem>
                   <SelectItem value="Local/Oficina">Local/Oficina</SelectItem>
-                  <SelectItem value="Lote">Lote</SelectItem>
+                  <SelectItem value="Lotes/Finca">Lotes/Finca</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -453,7 +453,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           {/* Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="metros_cuadrados">Metros² Totales *</Label>
+              <Label htmlFor="metros_cuadrados">m² Lote *</Label>
               <Input
                 id="metros_cuadrados"
                 type="text"

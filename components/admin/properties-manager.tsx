@@ -324,12 +324,12 @@ export function PropertiesManager() {
               Local/Oficina
             </Button>
             <Button
-              variant={filterCategory === "Lote" ? "default" : "outline"}
-              onClick={() => setFilterCategory("Lote")}
+              variant={filterCategory === "Lotes/Finca" ? "default" : "outline"}
+              onClick={() => setFilterCategory("Lotes/Finca")}
               size="sm"
               className="text-xs md:text-sm h-8 md:h-9"
             >
-              Lote
+              Lotes/Finca
             </Button>
           </div>
         </div>
