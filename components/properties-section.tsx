@@ -184,9 +184,9 @@ export function PropertiesSection() {
             {/* Carousel - Embla (swipe/drag enabled) */}
             <Carousel
               setApi={setEmblaApi}
-              opts={{ align: 'start', containScroll: 'trimSnaps' }}
+              opts={{ align: 'start', containScroll: 'trimSnaps', dragFree: false, speed: 10 }}
             >
-              <CarouselContent className="gap-6 transition-transform duration-300 ease-in-out">
+              <CarouselContent className="gap-6">
                 {filteredProperties.map((property) => (
                   <CarouselItem
                     key={property.id}
