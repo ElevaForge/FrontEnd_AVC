@@ -6,6 +6,12 @@ import { CategoryCard } from "./category-card"
 import { PropertyCard } from "./property-card"
 import { PropertyModal } from "./property-modal"
 import { Button } from "@/components/ui/button"
+import {
+  type CarouselApi,
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel"
 import { usePropiedades } from "@/hooks/use-propiedades"
 import type { PropiedadCompleta, CategoriaPropiedad } from "@/lib/types"
 
@@ -56,6 +62,7 @@ export function PropertiesSection() {
   const [selectedProperty, setSelectedProperty] = useState<PropiedadCompleta | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null)
   const visibleCards = useVisibleCards()
   
   // Fetch properties from backend (solo filtra por categoría, RLS se encarga de mostrar solo las activas)
@@ -75,13 +82,7 @@ export function PropertiesSection() {
     }
   }, [currentIndex, maxIndex])
 
-  const scrollPrev = useCallback(() => {
-    setCurrentIndex((prev) => Math.max(0, prev - 1))
-  }, [])
-
-  const scrollNext = useCallback(() => {
-    setCurrentIndex((prev) => Math.min(maxIndex, prev + 1))
-  }, [maxIndex])
+  // legacy currentIndex state kept for dots selection fallback; embla will handle scrolling
 
   const openModal = (property: PropiedadCompleta) => {
     setSelectedProperty(property)
@@ -98,6 +99,29 @@ export function PropertiesSection() {
     setActiveCategory(category)
     setCurrentIndex(0)
   }
+
+  // Sync embla selected index with local currentIndex state for dots and fallbacks
+  useEffect(() => {
+    if (!emblaApi) return
+
+    const onSelect = () => {
+      try {
+        const selected = emblaApi.selectedScrollSnap()
+        setCurrentIndex(selected)
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    onSelect()
+    emblaApi.on('select', onSelect)
+    emblaApi.on('reInit', onSelect)
+
+    return () => {
+      emblaApi.off('select', onSelect)
+      emblaApi.off('reInit', onSelect)
+    }
+  }, [emblaApi])
 
   return (
     <section id="comprar" className="py-20 bg-background">
@@ -140,8 +164,8 @@ export function PropertiesSection() {
                   variant="outline"
                   size="icon"
                   className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
-                  onClick={scrollPrev}
-                  disabled={currentIndex === 0}
+                  onClick={() => emblaApi?.scrollPrev()}
+                  disabled={!emblaApi || !emblaApi.canScrollPrev()}
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
@@ -149,37 +173,43 @@ export function PropertiesSection() {
                   variant="outline"
                   size="icon"
                   className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
-                  onClick={scrollNext}
-                  disabled={currentIndex >= maxIndex}
+                  onClick={() => emblaApi?.scrollNext()}
+                  disabled={!emblaApi || !emblaApi.canScrollNext()}
                 >
                   <ChevronRight className="h-5 w-5" />
                 </Button>
               </>
             )}
 
-            {/* Carousel - using CSS scroll */}
-            <div className="overflow-hidden">
-              <div
-                className="flex gap-6 transition-transform duration-300 ease-in-out"
-                style={{ transform: `translateX(-${currentIndex * (100 / 3 + 2)}%)` }}
-              >
+            {/* Carousel - Embla (swipe/drag enabled) */}
+            <Carousel
+              setApi={setEmblaApi}
+              opts={{ align: 'start', containScroll: 'trimSnaps' }}
+            >
+              <CarouselContent className="gap-6 transition-transform duration-300 ease-in-out">
                 {filteredProperties.map((property) => (
-                  <div key={property.id} className="flex-none w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
+                  <CarouselItem
+                    key={property.id}
+                    className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
+                  >
                     <PropertyCard property={property} onClick={() => openModal(property)} />
-                  </div>
+                  </CarouselItem>
                 ))}
-              </div>
-            </div>
+              </CarouselContent>
+            </Carousel>
 
             {/* Mobile Navigation Dots - Solo mostrar si hay más propiedades que las visibles */}
             {filteredProperties.length > visibleCards && (
               <div className="flex justify-center gap-2 mt-6 md:hidden">
-                {Array.from({ length: maxIndex + 1 }).map((_, index) => (
+                {Array.from({ length: emblaApi ? emblaApi.scrollSnapList().length : maxIndex + 1 }).map((_, index) => (
                   <button
                     key={index}
-                    onClick={() => setCurrentIndex(index)}
+                    onClick={() => emblaApi?.scrollTo(index)}
                     className={`w-2 h-2 rounded-full transition-colors ${
-                      index === currentIndex ? "bg-primary" : "bg-primary/30"
+                      // highlight selected dot if embla available, fall back to currentIndex
+                      (emblaApi ? emblaApi.selectedScrollSnap() === index : index === currentIndex)
+                        ? "bg-primary"
+                        : "bg-primary/30"
                     }`}
                   />
                 ))}
