@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, User, Phone, MapPin, FileText, Eye, Trash2, CheckCircle, Clock } from "lucide-react"
+import { Calendar, User, Phone, Mail, MapPin, FileText, Eye, Trash2, CheckCircle, Clock } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -163,12 +163,17 @@ export function RequestsViewer() {
                   <div className="space-y-3 md:space-y-4">
                     <div>
                       <label className="text-xs md:text-sm font-medium text-muted-foreground">Contacto</label>
-                      <div className="flex items-center gap-1.5 md:gap-2 mt-1">
-                        <Phone className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
-                        <p className="text-sm md:text-base text-foreground truncate">{selectedRequest.telefono}</p>
-                      </div>
+                      {selectedRequest.telefono && !selectedRequest.telefono.includes('@') && (
+                        <div className="flex items-center gap-1.5 md:gap-2 mt-1">
+                          <Phone className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                          <p className="text-sm md:text-base text-foreground truncate">{selectedRequest.telefono}</p>
+                        </div>
+                      )}
                       {selectedRequest.email && (
-                        <p className="text-foreground ml-6">{selectedRequest.email}</p>
+                        <div className="flex items-center gap-1.5 md:gap-2 mt-1">
+                          <Mail className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                          <p className="text-sm md:text-base text-foreground truncate">{selectedRequest.email}</p>
+                        </div>
                       )}
                     </div>
 
@@ -189,12 +194,12 @@ export function RequestsViewer() {
 
                     {selectedRequest.fecha_visita_preferida && (
                       <div>
-                        <label className="text-sm font-medium text-muted-foreground">Fecha de Visita</label>
+                        <label className="text-sm font-medium text-muted-foreground">Fecha y Hora de Visita</label>
                         <div className="flex items-center gap-2 mt-1">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <p className="text-foreground">
                             {new Date(selectedRequest.fecha_visita_preferida).toLocaleDateString("es-CO")}
-                            {selectedRequest.hora_preferida && ` - ${selectedRequest.hora_preferida}`}
+                            {selectedRequest.hora_preferida ? ` a las ${selectedRequest.hora_preferida}` : ' (sin hora especificada)'}
                           </p>
                         </div>
                       </div>

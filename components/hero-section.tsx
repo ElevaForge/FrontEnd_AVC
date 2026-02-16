@@ -81,7 +81,11 @@ export function HeroSection() {
             <Button
               onClick={() => navigateToSectionWithTipo("comprar", 'Arriendo')}
               size="lg"
+<<<<<<< HEAD
               className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
+=======
+              className="bg-secondary/80 hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
             >
               <Home className="mr-2 h-5 w-5" />
               Arrendar Propiedad

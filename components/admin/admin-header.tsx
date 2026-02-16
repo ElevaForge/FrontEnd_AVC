@@ -3,7 +3,7 @@
 import { LogOut, Bell, FileText, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useSolicitudes } from "@/hooks/use-solicitudes"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ interface AdminHeaderProps {
 }
 
 export function AdminHeader({ onLogout, onNavigate, user }: AdminHeaderProps) {
-  const { solicitudes } = useSolicitudes()
+  const { solicitudes, refetch, updateEstado } = useSolicitudes()
   const [open, setOpen] = useState(false)
   
   // Obtener solo las solicitudes pendientes
@@ -35,6 +35,24 @@ export function AdminHeader({ onLogout, onNavigate, user }: AdminHeaderProps) {
       onNavigate('solicitudes')
     }
   }
+
+  useEffect(() => {
+    if (!open) return
+    // Cuando se abre el menú de notificaciones, marcar como 'Contactado' las solicitudes pendientes
+    const markAsRead = async () => {
+      try {
+        const pending = solicitudes?.filter(s => s.estado === 'Pendiente') || []
+        if (pending.length === 0) return
+        await Promise.all(pending.map(s => updateEstado?.(s.id, 'Contactado')))
+        refetch()
+      } catch (err) {
+        console.error('Error marcando solicitudes como leídas', err)
+      }
+    }
+
+    markAsRead()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
   return (
     <header className="bg-gradient-to-r from-primary to-[#1a1f3a] border-b border-primary/20 fixed top-0 left-0 right-0 z-50 shadow-lg h-16 md:h-[73px]">
       <div className="flex items-center justify-between px-4 md:px-6 h-full">
@@ -128,11 +146,11 @@ export function AdminHeader({ onLogout, onNavigate, user }: AdminHeaderProps) {
           
           <div className="hidden md:flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-medium text-white">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuario'}</p>
-              <p className="text-xs text-white/70">{user?.email || ''}</p>
+              <p className="text-sm font-medium text-white">{user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : 'Administrador')}</p>
+              <p className="text-xs text-white/70">{user?.email || 'admin@avc.com'}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center shadow-md">
-              <span className="text-white font-semibold">{(user?.user_metadata?.name || user?.email || 'U')[0].toUpperCase()}</span>
+              <span className="text-white font-semibold">{((user?.user_metadata?.name || (user?.email ? user.email : 'Administrador'))[0] || 'A').toUpperCase()}</span>
             </div>
           </div>
           

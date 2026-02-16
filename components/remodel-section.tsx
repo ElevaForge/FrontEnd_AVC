@@ -22,7 +22,7 @@ export function RemodelSection() {
             Transforma tu <span className="text-secondary">Espacio</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Hacemos realidad la renovación que siempre soñaste con calidad y compromiso
+            Hacemos realidad la remodelación que siempre soñaste con calidad y compromiso
           </p>
         </div>
 

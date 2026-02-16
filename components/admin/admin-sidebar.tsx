@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, Home, FileText, Settings, Menu, X } from "lucide-react"
+import { LayoutDashboard, Home, FileText, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -65,13 +65,6 @@ export function AdminSidebar({ currentView, onViewChange }: AdminSidebarProps) {
               <span className="font-medium">{item.label}</span>
             </button>
           ))}
-          
-          <div className="pt-4 mt-4 border-t border-border">
-            <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-foreground hover:bg-muted transition-colors">
-              <Settings className="h-5 w-5" />
-              <span className="font-medium">Configuración</span>
-            </button>
-          </div>
         </nav>
       </aside>
 
@@ -94,13 +87,6 @@ export function AdminSidebar({ currentView, onViewChange }: AdminSidebarProps) {
             </button>
           ))}
         </nav>
-        
-        <div className="p-4 border-t border-border">
-          <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-foreground hover:bg-muted transition-colors">
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Configuración</span>
-          </button>
-        </div>
       </aside>
     </>
   )

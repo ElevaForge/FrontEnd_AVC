@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { type PropiedadCompleta, type CategoriaPropiedad, type EstadoPropiedad, type ImagenPropiedad } from "@/lib/types"
-import { apiGet } from "@/lib/api"
+import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import {
   Select,
@@ -45,7 +45,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     }
     return {
       nombre: "",
-      categoria: "Vivienda" as CategoriaPropiedad,
+      categoria: "Catalogo",
       descripcion: "",
       direccion: "",
       tipo_accion: "Venta" as const,
@@ -102,10 +102,16 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           setPrincipalMediaId(principal.id)
         }
       } else {
-        // Intentar cargar desde API
-        const response = await apiGet<ImagenPropiedad[]>(`/propiedades/${propertyId}/imagenes`)
-        if (response.success && response.data) {
-          const mediaWithType: ExistingMedia[] = response.data.map(img => ({
+        // Cargar imágenes directamente desde Supabase
+        const { data, error } = await supabase
+          .from('imagenes_propiedad')
+          .select('*')
+          .eq('propiedad_id', propertyId)
+          .order('orden', { ascending: true })
+          .limit(20)
+
+        if (!error && data && data.length > 0) {
+          const mediaWithType: ExistingMedia[] = data.map((img: ImagenPropiedad) => ({
             ...img,
             tipo_archivo: detectMediaType(img.url)
           }))
@@ -114,6 +120,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           if (principal) {
             setPrincipalMediaId(principal.id)
           }
+        } else if (error) {
+          console.error('Error loading images:', error)
         }
       }
     } catch (error) {
@@ -299,12 +307,6 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
         return false
       }
 
-      const estrato = formData['estrato'] !== undefined ? Number(formData['estrato']) : undefined
-      if (estrato !== undefined && (estrato < 1 || estrato > 6)) {
-        toast.error('Estrato debe estar entre 1 y 6')
-        return false
-      }
-
       return true
     }
 
@@ -362,23 +364,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               />
             </div>
 
-            <div className="space-y-1.5 md:space-y-2">
-              <Label htmlFor="categoria">Categoría *</Label>
-              <Select
-                value={formData.categoria}
-                onValueChange={(value: any) => setFormData({ ...formData, categoria: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Vivienda">Vivienda</SelectItem>
-                  <SelectItem value="Apartamento">Apartamento</SelectItem>
-                  <SelectItem value="Local/Oficina">Local/Oficina</SelectItem>
-                  <SelectItem value="Lote">Lote</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Categorías removidas: se usa un catálogo único. Campo oculto. */}
+            <input type="hidden" name="categoria" value={String(formData.categoria || 'Catalogo')} />
           </div>
 
           <div className="space-y-1.5 md:space-y-2">
@@ -451,7 +438,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
           {/* Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="metros_cuadrados">Metros² Totales *</Label>
+              <Label htmlFor="metros_cuadrados">m² Lote *</Label>
               <Input
                 id="metros_cuadrados"
                 type="text"
@@ -589,9 +576,10 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                         <video 
                           src={media.url} 
                           className="w-full h-full object-cover"
-                          muted
+                          controls
+                          playsInline
                         />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                           <Play className="h-8 w-8 text-white" />
                         </div>
                       </div>
@@ -666,9 +654,10 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
                         <video 
                           src={media.preview} 
                           className="w-full h-full object-cover"
-                          muted
+                          controls
+                          playsInline
                         />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                           <Play className="h-8 w-8 text-white" />
                         </div>
                       </div>

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
 interface PropertyModalProps {
+<<<<<<< HEAD
   // Compatibilidad: aceptar una lista de propiedades (`properties`) o una sola propiedad (`property`)
   properties?: PropiedadCompleta[]
   singleProperty?: PropiedadCompleta | null
@@ -17,6 +18,13 @@ interface PropertyModalProps {
   isOpen: boolean
   onClose: () => void
   onNavigate?: (newIndex: number) => void
+=======
+  properties: PropiedadCompleta[]
+  selectedIndex: number | null
+  isOpen: boolean
+  onClose: () => void
+  onNavigate: (newIndex: number) => void
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
 }
 
 const formatPrice = (price: number) => {
@@ -34,19 +42,28 @@ const estadoLabels: Record<string, string> = {
   Arrendada: "Arrendada",
 }
 
+<<<<<<< HEAD
 export function PropertyModal({ properties, singleProperty, selectedIndex, isOpen, onClose, onNavigate }: PropertyModalProps) {
+=======
+export function PropertyModal({ properties, selectedIndex, isOpen, onClose, onNavigate }: PropertyModalProps) {
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [images, setImages] = useState<string[]>([])
   const [loadingImages, setLoadingImages] = useState(false)
 
   // Cargar imágenes cuando se abre el modal o cambia la propiedad seleccionada
   useEffect(() => {
+<<<<<<< HEAD
     // Determinar la propiedad objetivo: si `properties` + `selectedIndex` están presentes, usar esa; si `property` está presente, usarla.
     if (!isOpen) {
+=======
+    if (!isOpen || selectedIndex === null) {
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
       setImages([])
       setCurrentImageIndex(0)
       return
     }
+<<<<<<< HEAD
 
     let prop: PropiedadCompleta | undefined
     if (properties && typeof selectedIndex === 'number' && selectedIndex !== null) {
@@ -57,12 +74,21 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
 
     if (prop?.id) loadImages(prop.id)
   }, [isOpen, selectedIndex, properties, singleProperty])
+=======
+    const prop = properties[selectedIndex]
+    if (prop?.id) loadImages(prop.id)
+  }, [isOpen, selectedIndex])
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
 
   const loadImages = async (propertyId: string) => {
     setLoadingImages(true)
     try {
       // Intentar usar imágenes incluidas en la propia propiedad
+<<<<<<< HEAD
       const propObj = (properties || []).find(p => p.id === propertyId) || (singleProperty && singleProperty.id === propertyId ? singleProperty : undefined)
+=======
+      const propObj = properties.find(p => p.id === propertyId)
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
       if (propObj?.imagenes && propObj.imagenes.length > 0) {
         const urls = propObj.imagenes.map(img => img.url).filter(Boolean)
         if (urls.length > 0) {
@@ -97,7 +123,11 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
       }
     } catch (err) {
       console.error('Error loading images:', err)
+<<<<<<< HEAD
       const propObj = (properties || []).find(p => p.id === propertyId) || (singleProperty && singleProperty.id === propertyId ? singleProperty : undefined)
+=======
+      const propObj = properties.find(p => p.id === propertyId)
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
       if (propObj?.imagen_principal) {
         setImages([propObj.imagen_principal])
       }
@@ -106,6 +136,7 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
     }
   }
 
+<<<<<<< HEAD
   // Determinar propiedad actual para renderizar
   let currentProperty: PropiedadCompleta | undefined
   if (properties && typeof selectedIndex === 'number') {
@@ -116,6 +147,10 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
 
   if (!isOpen || !currentProperty) return null
   const property = currentProperty
+=======
+  if (!isOpen || selectedIndex === null) return null
+  const property = properties[selectedIndex]
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
 
   const whatsappMessage = encodeURIComponent(
     `Hola, estoy interesado en la propiedad "${property.nombre}" ubicada en ${property.direccion}. Precio: ${formatPrice(property.precio)}. ¿Podrían darme más información?`,
@@ -134,13 +169,21 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
   }
 
   const prevProperty = () => {
+<<<<<<< HEAD
     if (!properties || typeof selectedIndex !== 'number' || !onNavigate) return
+=======
+    if (selectedIndex === null) return
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
     const newIndex = (selectedIndex - 1 + properties.length) % properties.length
     onNavigate(newIndex)
   }
 
   const nextProperty = () => {
+<<<<<<< HEAD
     if (!properties || typeof selectedIndex !== 'number' || !onNavigate) return
+=======
+    if (selectedIndex === null) return
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
     const newIndex = (selectedIndex + 1) % properties.length
     onNavigate(newIndex)
   }

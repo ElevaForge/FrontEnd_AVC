@@ -3,7 +3,8 @@
  */
 
 // Enums
-export type CategoriaPropiedad = 'Vivienda' | 'Apartamento' | 'Local/Oficina' | 'Lote'
+// Se simplifica categoría para soportar un único catálogo (valor libre)
+export type CategoriaPropiedad = string
 export type TipoAccion = 'Venta' | 'Arriendo'
 export type EstadoPropiedad = 'Disponible' | 'Vendida' | 'Arrendada' | 'Reservada'
 export type TipoSolicitud = 'Informacion' | 'Visita' | 'Remodelacion' | 'Venta'

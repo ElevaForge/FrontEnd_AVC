@@ -21,8 +21,9 @@ describe('HeroSection', () => {
     render(<HeroSection />)
     
     expect(screen.getByText(/Comprar Propiedad/i)).toBeInTheDocument()
+    expect(screen.getByText(/^Arrendar Propiedad$/i)).toBeInTheDocument()
     expect(screen.getByText(/Remodelar/i)).toBeInTheDocument()
-    expect(screen.getByText(/Vender Propiedad/i)).toBeInTheDocument()
+    expect(screen.getByText(/Vender\/Arrendar Propiedad/i)).toBeInTheDocument()
   })
 
   it('renders the company slogan', () => {

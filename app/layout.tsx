@@ -73,6 +73,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        <link rel="canonical" href="https://www.avcinmobiliaria.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

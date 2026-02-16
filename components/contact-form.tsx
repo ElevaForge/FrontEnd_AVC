@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { apiPost } from "@/lib/api"
-import type { SolicitudRemodelacionForm, SolicitudVentaForm } from "@/lib/types"
+import { supabase } from "@/lib/supabase"
 
 interface ContactFormProps {
   type: "remodelacion" | "venta"
@@ -23,7 +22,8 @@ interface FormData {
   descripcion: string
   nombre: string
   contacto: string
-  fechaVisita: string
+  fecha: string
+  hora: string
   tipoServicio: string
 }
 
@@ -32,7 +32,8 @@ interface FormErrors {
   descripcion?: string
   nombre?: string
   contacto?: string
-  fechaVisita?: string
+  fecha?: string
+  hora?: string
 }
 
 export function ContactForm({ type }: ContactFormProps) {
@@ -41,8 +42,9 @@ export function ContactForm({ type }: ContactFormProps) {
     descripcion: "",
     nombre: "",
     contacto: "",
-    fechaVisita: "",
-    tipoServicio: type === "remodelacion" ? "renovacion" : "vender",
+    fecha: "",
+    hora: "",
+    tipoServicio: type === "remodelacion" ? "remodelacion" : "vender",
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -71,12 +73,11 @@ export function ContactForm({ type }: ContactFormProps) {
           return "Ingresa un teléfono (10 dígitos) o email válido"
         }
         break
-      case "fechaVisita":
-        if (!value) return "La fecha de visita es requerida"
-        const selectedDate = new Date(value)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        if (selectedDate < today) return "La fecha debe ser futura"
+      case "fecha":
+        if (!value) return "La fecha es requerida"
+        break
+      case "hora":
+        if (!value) return "La hora es requerida"
         break
     }
     return undefined
@@ -100,7 +101,8 @@ export function ContactForm({ type }: ContactFormProps) {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
     let isValid = true
-    ;["ubicacion", "descripcion", "nombre", "contacto", "fechaVisita"].forEach((field) => {
+    ;["ubicacion", "descripcion", "nombre", "contacto", "fecha", "hora"].forEach((field) => {
+      // @ts-ignore
       const error = validateField(field, formData[field as keyof FormData])
       if (error) {
         newErrors[field as keyof FormErrors] = error
@@ -114,7 +116,8 @@ export function ContactForm({ type }: ContactFormProps) {
       descripcion: true,
       nombre: true,
       contacto: true,
-      fechaVisita: true,
+      fecha: true,
+      hora: true,
     })
 
     return isValid
@@ -132,38 +135,62 @@ export function ContactForm({ type }: ContactFormProps) {
 
     try {
       // Preparar datos según el tipo
-      const [fecha, hora] = formData.fechaVisita.split('T')
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
-      if (type === "remodelacion") {
-        const payload: SolicitudRemodelacionForm = {
-          nombre_persona: formData.nombre,
-          email: email || undefined as any,
-          telefono: telefono || formData.contacto,
-          ubicacion: formData.ubicacion,
-          descripcion: formData.descripcion,
-        }
+      // Mapear tipo_servicio a los valores canónicos esperados por la BD
+      // Valores del enum tipo_servicio: Comprar, Arrendar, Vender, Renovacion
+      const tipoServicioMap: Record<string, string> = {
+        'remodelacion': 'Renovacion',
+        'construccion': 'Renovacion',
+        'vender': 'Vender',
+        'arrendar': 'Arrendar',
+      }
 
-        const response = await apiPost('/solicitudes/remodelacion', payload)
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Error al enviar solicitud')
-        }
-      } else {
-        const payload: SolicitudVentaForm = {
-          nombre_persona: formData.nombre,
-          email: email || undefined as any,
-          telefono: telefono || formData.contacto,
-          ubicacion: formData.ubicacion,
-          descripcion: formData.descripcion,
-        }
+      // Crear solicitud directamente en Supabase
+      // No enviar valores no mapeados directamente al enum de la BD.
+      // Si no hay mapeo definido, enviar null y adjuntar la selección en la descripción.
+      const mappedTipoServicio = tipoServicioMap[formData.tipoServicio]
+      const descripcionFinal = formData.descripcion
+        ? `${formData.descripcion}\n\nServicio seleccionado: ${formData.tipoServicio}`
+        : `Servicio seleccionado: ${formData.tipoServicio}`
 
-        const response = await apiPost('/solicitudes/venta', payload)
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Error al enviar solicitud')
-        }
+      const solicitudData: Record<string, string | null> = {
+        tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
+        tipo_servicio: mappedTipoServicio || null,
+        nombre_persona: formData.nombre,
+        email: email || null,
+        telefono: telefono || formData.contacto,
+        ubicacion: formData.ubicacion,
+        descripcion: descripcionFinal,
+        estado: "Pendiente",
+      }
+
+      // Validar y combinar fecha + hora creando la fecha en hora local
+      if (!formData.fecha || !formData.hora) {
+        throw new Error('Debes seleccionar fecha y hora para la visita')
+      }
+
+      const [y, m, d] = formData.fecha.split('-').map(Number)
+      const [hh, mm] = formData.hora.split(':').map(Number)
+      const selected = new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0)
+
+      if (isNaN(selected.getTime())) {
+        throw new Error('Fecha u hora inválida')
+      }
+
+      if (selected.getTime() <= Date.now()) {
+        throw new Error('La fecha y hora deben ser futuras')
+      }
+
+      solicitudData['fecha_visita_preferida'] = selected.toISOString()
+      solicitudData['hora_preferida'] = formData.hora
+
+      const { error } = await supabase.from('solicitudes').insert(solicitudData)
+
+      if (error) {
+        console.error('Error inserting solicitud:', error)
+        throw new Error(error.message || 'Error al enviar solicitud')
       }
 
       toast.success(
@@ -179,8 +206,9 @@ export function ContactForm({ type }: ContactFormProps) {
         descripcion: "",
         nombre: "",
         contacto: "",
-        fechaVisita: "",
-        tipoServicio: type === "remodelacion" ? "renovacion" : "vender",
+        fecha: "",
+        hora: "",
+        tipoServicio: type === "remodelacion" ? "remodelacion" : "vender",
       })
       setTouched({})
       setErrors({})
@@ -326,28 +354,41 @@ export function ContactForm({ type }: ContactFormProps) {
 
       {/* Fecha de Visita */}
       <div className="space-y-2">
-        <Label htmlFor={`${type}-fecha`} className="text-card-foreground">
-          Fecha y hora preferida para visita
-        </Label>
-        <div className="relative">
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            id={`${type}-fecha`}
-            type="datetime-local"
-            value={formData.fechaVisita}
-            onChange={(e) => handleChange("fechaVisita", e.target.value)}
-            onBlur={() => handleBlur("fechaVisita")}
-            className={cn(
-              "pl-10",
-              getInputState("fechaVisita") === "error" && "border-destructive focus-visible:ring-destructive",
-              getInputState("fechaVisita") === "success" && "border-green-500 focus-visible:ring-green-500",
-            )}
-          />
+        <Label className="text-card-foreground">Fecha y hora preferida para visita</Label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id={`${type}-fecha`}
+              type="date"
+              value={formData.fecha}
+              onChange={(e) => handleChange("fecha", e.target.value)}
+              onBlur={() => handleBlur("fecha")}
+              className={cn(
+                "pl-10",
+                getInputState("fecha") === "error" && "border-destructive focus-visible:ring-destructive",
+                getInputState("fecha") === "success" && "border-green-500 focus-visible:ring-green-500",
+              )}
+            />
+          </div>
+          <div className="relative w-1/3">
+            <Input
+              id={`${type}-hora`}
+              type="time"
+              value={formData.hora}
+              onChange={(e) => handleChange("hora", e.target.value)}
+              onBlur={() => handleBlur("hora")}
+              className={cn(
+                getInputState("hora") === "error" && "border-destructive focus-visible:ring-destructive",
+                getInputState("hora") === "success" && "border-green-500 focus-visible:ring-green-500",
+              )}
+            />
+          </div>
         </div>
-        {errors.fechaVisita && touched.fechaVisita && (
+        {(errors.fecha || errors.hora) && (touched.fecha || touched.hora) && (
           <p className="text-sm text-destructive flex items-center gap-1">
             <AlertCircle className="h-4 w-4" />
-            {errors.fechaVisita}
+            {errors.fecha || errors.hora}
           </p>
         )}
       </div>
@@ -363,9 +404,9 @@ export function ContactForm({ type }: ContactFormProps) {
           {type === "remodelacion" ? (
             <>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="renovacion" id={`${type}-renovacion`} />
-                <Label htmlFor={`${type}-renovacion`} className="cursor-pointer">
-                  Renovación
+                <RadioGroupItem value="remodelacion" id={`${type}-remodelacion`} />
+                <Label htmlFor={`${type}-remodelacion`} className="cursor-pointer">
+                  Remodelación
                 </Label>
               </div>
               <div className="flex items-center space-x-2">

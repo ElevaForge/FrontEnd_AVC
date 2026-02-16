@@ -157,7 +157,31 @@ export function PropertiesSection() {
           <div className="relative">
             {/* Navigation per-catalog handled below */}
 
+<<<<<<< HEAD
             {/* Se muestran ambos catálogos por separado más abajo (sin botones de ancla) */}
+=======
+            {/* Catalog Links (paleta consistente con la hero) */}
+            <div className="flex justify-center gap-4 mb-6">
+              <button
+                onClick={() => {
+                  const el = document.getElementById('catalogo-comprar')
+                  el?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="bg-secondary/80 hover:bg-secondary/90 text-white px-6 py-3 rounded-xl shadow-lg transition-all"
+              >
+                Comprar
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('catalogo-arrendar')
+                  el?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="bg-secondary/80 hover:bg-secondary/90 text-white px-6 py-3 rounded-xl shadow-lg transition-all"
+              >
+                Arrendar
+              </button>
+            </div>
+>>>>>>> cec75dce199abf78b818a2567194f338797781f2
 
             {/* Carousel Venta */}
             <div id="catalogo-comprar" className="mb-12">

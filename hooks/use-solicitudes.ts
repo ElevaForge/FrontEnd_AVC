@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import type { Solicitud, SolicitudesQuery } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -16,27 +16,38 @@ export function useSolicitudes(filters: SolicitudesQuery = {}) {
     setError(null)
 
     try {
-      const params = new URLSearchParams()
+      let query = supabase.from('solicitudes').select('*')
+
+      // Aplicar filtros
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          params.append(key, String(value))
+          // Ignorar parámetros de paginación para el filtro eq
+          if (key !== 'limit' && key !== 'offset' && key !== 'order_by' && key !== 'order_dir') {
+            query = query.eq(key, value)
+          }
         }
       })
 
-      const endpoint = `/solicitudes${params.toString() ? `?${params.toString()}` : ''}`
-      const response = await apiGet<Solicitud[]>(endpoint)
+      // Ordenar por fecha de creación descendente
+      query = query.order('created_at', { ascending: false })
 
-      if (response.success && response.data) {
-        setSolicitudes(response.data)
-        if (response.message && response.message.startsWith('Total:')) {
-          const totalStr = response.message.replace('Total:', '').trim()
-          setTotal(parseInt(totalStr) || 0)
-        } else {
-          setTotal(response.data.length)
-        }
-      } else {
-        setError(response.error || 'Error al cargar solicitudes')
+      // Aplicar límite si existe
+      if (filters.limit) {
+        query = query.limit(filters.limit)
+      }
+
+      const { data, error: fetchError } = await query
+
+      if (fetchError) {
+        console.error('Error fetching solicitudes:', fetchError)
+        setError(fetchError.message)
         setSolicitudes([])
+      } else if (data) {
+        setSolicitudes(data as Solicitud[])
+        setTotal(data.length)
+      } else {
+        setSolicitudes([])
+        setTotal(0)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
@@ -52,17 +63,22 @@ export function useSolicitudes(filters: SolicitudesQuery = {}) {
 
   const updateEstado = async (id: string, estado: string) => {
     try {
-      const response = await apiPatch(`/solicitudes/${id}/estado`, { estado })
+      const { error } = await supabase
+        .from('solicitudes')
+        .update({ estado, updated_at: new Date().toISOString() })
+        .eq('id', id)
       
-      if (response.success) {
-        toast.success('Estado actualizado correctamente')
-        fetchSolicitudes()
-        return true
-      } else {
-        toast.error(response.error || 'Error al actualizar estado')
+      if (error) {
+        console.error('Error updating estado:', error)
+        toast.error(error.message || 'Error al actualizar estado')
         return false
       }
+      
+      toast.success('Estado actualizado correctamente')
+      fetchSolicitudes()
+      return true
     } catch (err) {
+      console.error('Error updating estado:', err)
       toast.error('Error al actualizar estado')
       return false
     }
@@ -70,17 +86,22 @@ export function useSolicitudes(filters: SolicitudesQuery = {}) {
 
   const deleteSolicitud = async (id: string) => {
     try {
-      const response = await apiDelete(`/solicitudes/${id}`)
+      const { error } = await supabase
+        .from('solicitudes')
+        .delete()
+        .eq('id', id)
       
-      if (response.success) {
-        toast.success('Solicitud eliminada')
-        fetchSolicitudes()
-        return true
-      } else {
-        toast.error(response.error || 'Error al eliminar')
+      if (error) {
+        console.error('Error deleting solicitud:', error)
+        toast.error(error.message || 'Error al eliminar')
         return false
       }
+      
+      toast.success('Solicitud eliminada')
+      fetchSolicitudes()
+      return true
     } catch (err) {
+      console.error('Error deleting solicitud:', err)
       toast.error('Error al eliminar')
       return false
     }
