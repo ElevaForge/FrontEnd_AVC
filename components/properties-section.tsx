@@ -41,37 +41,27 @@ export function PropertiesSection() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null)
+  const [emblaVentaApi, setEmblaVentaApi] = useState<CarouselApi | null>(null)
+  const [emblaArriendoApi, setEmblaArriendoApi] = useState<CarouselApi | null>(null)
   const visibleCards = useVisibleCards()
- 
-  // Tipo de catálogo (Venta / Arriendo) — cada uno es un catálogo separado.
-  const [tipoAccion, setTipoAccion] = useState<'Venta' | 'Arriendo'>('Venta')
 
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search)
-      const tipo = params.get('tipo')
-      if (tipo === 'Arriendo') setTipoAccion('Arriendo')
-      else if (tipo === 'Venta') setTipoAccion('Venta')
-      else setTipoAccion('Venta')
-    } catch (err) {
-      setTipoAccion('Venta')
-    }
-  }, [])
+  // Obtener propiedades por tipo (cada tipo es un catálogo separado)
+  const { propiedades: ventaPropiedades = [], loading: loadingVenta } = usePropiedades({ tipo_accion: 'Venta' })
+  const { propiedades: arriendoPropiedades = [], loading: loadingArriendo } = usePropiedades({ tipo_accion: 'Arriendo' })
 
-  const { propiedades, loading } = usePropiedades(tipoAccion ? { tipo_accion: tipoAccion } : {})
-  
-  const filteredProperties = propiedades || []
+  const loading = loadingVenta || loadingArriendo
 
+  const combinedCount = (ventaPropiedades?.length || 0) + (arriendoPropiedades?.length || 0)
   // Calcular el índice máximo basado en tarjetas visibles
-  const maxIndex = Math.max(0, filteredProperties.length - visibleCards)
+  const maxIndexVenta = Math.max(0, (ventaPropiedades?.length || 0) - visibleCards)
+  const maxIndexArriendo = Math.max(0, (arriendoPropiedades?.length || 0) - visibleCards)
 
-  // Asegurar que currentIndex no exceda maxIndex cuando cambian las propiedades
+  // Asegurar que currentIndex no exceda maxIndex cuando cambian las propiedades (por catálogo)
   useEffect(() => {
-    if (currentIndex > maxIndex) {
-      setCurrentIndex(maxIndex)
+    if (currentIndex > Math.max(maxIndexVenta, maxIndexArriendo)) {
+      setCurrentIndex(Math.max(maxIndexVenta, maxIndexArriendo))
     }
-  }, [currentIndex, maxIndex])
+  }, [currentIndex, maxIndexVenta, maxIndexArriendo])
 
   // legacy currentIndex state kept for dots selection fallback; embla will handle scrolling
 
@@ -87,38 +77,60 @@ export function PropertiesSection() {
 
   // (sin categorías) - no-op
 
-  // Sync embla selected index with local currentIndex state for dots and fallbacks
+  // Sync embla selected index with local currentIndex state for dots and fallbacks (per catálogo)
   useEffect(() => {
-    if (!emblaApi) return
+    let cleanupVenta: (() => void) | undefined
+    let cleanupArriendo: (() => void) | undefined
 
-    const onSelect = () => {
-      try {
-        const selected = emblaApi.selectedScrollSnap()
-        setCurrentIndex(selected)
-      } catch (e) {
-        // ignore
+    if (emblaVentaApi) {
+      const onSelectVenta = () => {
+        try {
+          const selected = emblaVentaApi.selectedScrollSnap()
+          setCurrentIndex(selected)
+        } catch (e) {
+          // ignore
+        }
+      }
+      onSelectVenta()
+      emblaVentaApi.on('select', onSelectVenta)
+      emblaVentaApi.on('reInit', onSelectVenta)
+      cleanupVenta = () => {
+        emblaVentaApi.off('select', onSelectVenta)
+        emblaVentaApi.off('reInit', onSelectVenta)
       }
     }
 
-    onSelect()
-    emblaApi.on('select', onSelect)
-    emblaApi.on('reInit', onSelect)
+    if (emblaArriendoApi) {
+      const onSelectArriendo = () => {
+        try {
+          const selected = emblaArriendoApi.selectedScrollSnap()
+          setCurrentIndex(selected)
+        } catch (e) {
+          // ignore
+        }
+      }
+      onSelectArriendo()
+      emblaArriendoApi.on('select', onSelectArriendo)
+      emblaArriendoApi.on('reInit', onSelectArriendo)
+      cleanupArriendo = () => {
+        emblaArriendoApi.off('select', onSelectArriendo)
+        emblaArriendoApi.off('reInit', onSelectArriendo)
+      }
+    }
 
     return () => {
-      emblaApi.off('select', onSelect)
-      emblaApi.off('reInit', onSelect)
+      cleanupVenta?.()
+      cleanupArriendo?.()
     }
-  }, [emblaApi])
+  }, [emblaVentaApi, emblaArriendoApi])
 
-  const switchCatalog = (nuevoTipo: 'Venta' | 'Arriendo') => {
-    setTipoAccion(nuevoTipo)
-    try {
-      const url = new URL(window.location.href)
-      url.searchParams.set('tipo', nuevoTipo)
-      window.history.replaceState({}, '', url.toString())
-    } catch (err) {
-      // ignore
-    }
+  // Modal: mantenemos la lista de propiedades que abrió el modal para navegación interna
+  const [modalProperties, setModalProperties] = useState<PropiedadCompleta[]>([])
+
+  const openModalFrom = (propsList: PropiedadCompleta[], index: number) => {
+    setModalProperties(propsList)
+    setSelectedIndex(index)
+    setIsModalOpen(true)
   }
 
   return (
@@ -143,91 +155,161 @@ export function PropertiesSection() {
           </div>
         ) : (
           <div className="relative">
-            {/* Navigation Buttons - Solo mostrar si hay más propiedades que las visibles */}
-            {filteredProperties.length > visibleCards && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
-                  onClick={() => emblaApi?.scrollPrev()}
-                  disabled={!emblaApi || !emblaApi.canScrollPrev()}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
-                  onClick={() => emblaApi?.scrollNext()}
-                  disabled={!emblaApi || !emblaApi.canScrollNext()}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              </>
-            )}
+            {/* Navigation per-catalog handled below */}
 
-            {/* Catalog Toggle Buttons */}
-            <div className="flex justify-center gap-2 mb-6">
-              <Button
-                variant={tipoAccion === 'Venta' ? 'secondary' : 'outline'}
-                onClick={() => switchCatalog('Venta')}
+            {/* Catalog Links (paleta consistente con la hero) */}
+            <div className="flex justify-center gap-4 mb-6">
+              <button
+                onClick={() => {
+                  const el = document.getElementById('catalogo-comprar')
+                  el?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="bg-secondary/80 hover:bg-secondary/90 text-white px-6 py-3 rounded-xl shadow-lg transition-all"
               >
                 Comprar
-              </Button>
-              <Button
-                variant={tipoAccion === 'Arriendo' ? 'secondary' : 'outline'}
-                onClick={() => switchCatalog('Arriendo')}
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('catalogo-arrendar')
+                  el?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="bg-secondary/80 hover:bg-secondary/90 text-white px-6 py-3 rounded-xl shadow-lg transition-all"
               >
                 Arrendar
-              </Button>
+              </button>
             </div>
 
-            {/* Carousel - Embla (swipe/drag enabled) */}
-            <Carousel setApi={setEmblaApi}>
-              <CarouselContent className="gap-6">
-                {filteredProperties.map((property, idx) => (
-                  <CarouselItem
-                    key={property.id}
-                    className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
-                  >
-                    <PropertyCard property={property} onClick={() => openModal(idx)} />
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
+            {/* Carousel Venta */}
+            <div id="catalogo-comprar" className="mb-12">
+              <h3 className="text-2xl font-semibold mb-4">Catálogo - Comprar</h3>
+              <div className="relative">
+                {ventaPropiedades.length > visibleCards && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
+                      onClick={() => emblaVentaApi?.scrollPrev()}
+                      disabled={!emblaVentaApi || !emblaVentaApi.canScrollPrev()}
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
+                      onClick={() => emblaVentaApi?.scrollNext()}
+                      disabled={!emblaVentaApi || !emblaVentaApi.canScrollNext()}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </>
+                )}
 
-            {/* Mobile Navigation Dots - Solo mostrar si hay más propiedades que las visibles */}
-            {filteredProperties.length > visibleCards && (
-              <div className="flex justify-center gap-2 mt-6 md:hidden">
-                {Array.from({ length: emblaApi ? emblaApi.scrollSnapList().length : maxIndex + 1 }).map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => emblaApi?.scrollTo(index)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      // highlight selected dot if embla available, fall back to currentIndex
-                      (emblaApi ? emblaApi.selectedScrollSnap() === index : index === currentIndex)
-                        ? "bg-primary"
-                        : "bg-primary/30"
-                    }`}
-                  />
-                ))}
+                <Carousel setApi={setEmblaVentaApi}>
+                  <CarouselContent className="gap-6">
+                    {ventaPropiedades.map((property, idx) => (
+                      <CarouselItem
+                        key={property.id}
+                        className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
+                      >
+                        <PropertyCard property={property} onClick={() => openModalFrom(ventaPropiedades, idx)} />
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                </Carousel>
+
+                {ventaPropiedades.length > visibleCards && (
+                  <div className="flex justify-center gap-2 mt-6 md:hidden">
+                    {Array.from({ length: emblaVentaApi ? emblaVentaApi.scrollSnapList().length : maxIndexVenta + 1 }).map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => emblaVentaApi?.scrollTo(index)}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          (emblaVentaApi ? emblaVentaApi.selectedScrollSnap() === index : index === currentIndex)
+                            ? "bg-primary"
+                            : "bg-primary/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Carousel Arriendo */}
+            <div id="catalogo-arrendar" className="mb-12">
+              <h3 className="text-2xl font-semibold mb-4">Catálogo - Arrendar</h3>
+              <div className="relative">
+                {arriendoPropiedades.length > visibleCards && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
+                      onClick={() => emblaArriendoApi?.scrollPrev()}
+                      disabled={!emblaArriendoApi || !emblaArriendoApi.canScrollPrev()}
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-card shadow-lg hidden md:flex"
+                      onClick={() => emblaArriendoApi?.scrollNext()}
+                      disabled={!emblaArriendoApi || !emblaArriendoApi.canScrollNext()}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </>
+                )}
+
+                <Carousel setApi={setEmblaArriendoApi}>
+                  <CarouselContent className="gap-6">
+                    {arriendoPropiedades.map((property, idx) => (
+                      <CarouselItem
+                        key={property.id}
+                        className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
+                      >
+                        <PropertyCard property={property} onClick={() => openModalFrom(arriendoPropiedades, idx)} />
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                </Carousel>
+
+                {arriendoPropiedades.length > visibleCards && (
+                  <div className="flex justify-center gap-2 mt-6 md:hidden">
+                    {Array.from({ length: emblaArriendoApi ? emblaArriendoApi.scrollSnapList().length : maxIndexArriendo + 1 }).map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => emblaArriendoApi?.scrollTo(index)}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          (emblaArriendoApi ? emblaArriendoApi.selectedScrollSnap() === index : index === currentIndex)
+                            ? "bg-primary"
+                            : "bg-primary/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile navigation dots are shown per-catalog above */}
           </div>
         )}
 
         {/* Empty State */}
-        {filteredProperties.length === 0 && (
+        {combinedCount === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No hay propiedades disponibles.</p>
           </div>
         )}
       </div>
 
-      {/* Property Modal: pasamos la lista y el índice seleccionado para permitir navegación entre propiedades */}
+      {/* Property Modal: pasamos la lista que abrió el modal y el índice seleccionado para navegación */}
       <PropertyModal
-        properties={filteredProperties}
+        properties={modalProperties}
         selectedIndex={selectedIndex}
         isOpen={isModalOpen}
         onClose={closeModal}
