@@ -25,6 +25,7 @@ export function PropertiesManager() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProperty, setEditingProperty] = useState<PropiedadCompleta | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  // Categorías removidas del catálogo principal
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const { user } = useAuth()
   
@@ -35,8 +36,8 @@ export function PropertiesManager() {
     const address = property.direccion || ''
     const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          address.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = filterCategory === "all" || property.categoria === filterCategory
-    return matchesSearch && matchesCategory
+    // No filtramos por categoría (catálogo único)
+    return matchesSearch
   })
 
   const handleAddProperty = () => {
@@ -291,46 +292,7 @@ export function PropertiesManager() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={filterCategory === "all" ? "default" : "outline"}
-              onClick={() => setFilterCategory("all")}
-              size="sm"
-              className="text-xs md:text-sm h-8 md:h-9"
-            >
-              Todas
-            </Button>
-            <Button
-              variant={filterCategory === "Vivienda" ? "default" : "outline"}
-              onClick={() => setFilterCategory("Vivienda")}
-              size="sm"
-              className="text-xs md:text-sm h-8 md:h-9"
-            >
-              Vivienda
-            </Button>
-            <Button
-              variant={filterCategory === "Apartamento" ? "default" : "outline"}
-              onClick={() => setFilterCategory("Apartamento")}
-              size="sm"
-              className="text-xs md:text-sm h-8 md:h-9"
-            >
-              Apartamento
-            </Button>
-            <Button
-              variant={filterCategory === "Local/Oficina" ? "default" : "outline"}
-              onClick={() => setFilterCategory("Local/Oficina")}
-              size="sm"
-              className="text-xs md:text-sm h-8 md:h-9"
-            >
-              Local/Oficina
-            </Button>
-            <Button
-              variant={filterCategory === "Lotes/Finca" ? "default" : "outline"}
-              onClick={() => setFilterCategory("Lotes/Finca")}
-              size="sm"
-              className="text-xs md:text-sm h-8 md:h-9"
-            >
-              Lotes/Finca
-            </Button>
+            {/* Categorías removidas: no mostrar botones de filtro por categoría */}
           </div>
         </div>
       </Card>
@@ -372,10 +334,6 @@ export function PropertiesManager() {
                   <p className="text-sm md:text-base text-muted-foreground line-clamp-2">{property.descripcion}</p>
 
                   <div className="flex flex-wrap gap-2 md:gap-4 text-xs md:text-sm">
-                    <div className="flex items-center gap-1">
-                      <span className="font-semibold text-foreground">Categoría:</span>
-                      <span className="text-muted-foreground">{property.categoria}</span>
-                    </div>
                     <div className="flex items-center gap-1">
                       <span className="font-semibold text-foreground">Precio:</span>
                       <span className="text-primary font-bold">{formatPrice(Number(property.precio ?? 0))}</span>

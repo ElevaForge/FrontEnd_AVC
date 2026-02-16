@@ -3,6 +3,7 @@
 import { MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
 import type { PropiedadCompleta } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -37,19 +38,18 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
       onClick={onClick}
     >
       {/* Image Container - altura flexible que se adapta a la imagen */}
-      <div className="relative w-full min-h-[200px] max-h-[350px] bg-muted flex items-center justify-center overflow-hidden">
-        <img
-          src={property.imagen_principal || "/placeholder.svg?height=300&width=400&query=property"}
-          alt={property.nombre}
-          className="w-full h-auto max-h-[350px] object-contain transition-transform duration-300 group-hover:scale-105"
-          style={{ display: 'block' }}
-        />
+      <div className="relative w-full bg-muted flex items-center justify-center overflow-hidden">
+        <div className="relative w-full h-[260px] md:h-[300px]">
+          <Image
+            src={property.imagen_principal || "/placeholder.svg"}
+            alt={property.nombre}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            style={{ objectFit: 'contain' }}
+            className="transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none" />
-
-        {/* Category Badge */}
-        <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground z-10">
-          {property.categoria.replace('_', '/')}
-        </Badge>
 
         {/* Status Badge */}
         <Badge

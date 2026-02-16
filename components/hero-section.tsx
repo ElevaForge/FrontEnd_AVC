@@ -11,6 +11,21 @@ export function HeroSection() {
     }
   }
 
+  const navigateToSectionWithTipo = (sectionId: string, tipo?: 'Venta' | 'Arriendo') => {
+    try {
+      const url = new URL(window.location.href)
+      if (tipo) {
+        url.searchParams.set('tipo', tipo)
+      } else {
+        url.searchParams.delete('tipo')
+      }
+      window.history.replaceState({}, '', url.toString())
+    } catch (err) {
+      // ignore
+    }
+    scrollToSection(sectionId)
+  }
+
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary to-[#1a1f3a] text-primary-foreground overflow-hidden">
       {/* Background Pattern */}
@@ -31,7 +46,7 @@ export function HeroSection() {
             <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-xl flex items-center justify-center shadow-lg p-2">
               <img
                 src="/Logo.svg"
-                alt="Logo de AVC Inmobiliaria y Constructora - Servicios inmobiliarios en Pasto y Colombia"
+                alt="AVC Logo"
                 className="w-full h-full object-contain"
               />
             </div>
@@ -53,15 +68,24 @@ export function HeroSection() {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button
-            onClick={() => scrollToSection("comprar")}
+            onClick={() => navigateToSectionWithTipo("comprar", 'Venta')}
             size="lg"
             className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
           >
             <Home className="mr-2 h-5 w-5" />
             Comprar Propiedad
           </Button>
+
+            <Button
+              onClick={() => navigateToSectionWithTipo("comprar", 'Arriendo')}
+              size="lg"
+              className="bg-secondary/80 hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
+            >
+              <Home className="mr-2 h-5 w-5" />
+              Arrendar Propiedad
+            </Button>
 
           <Button
             onClick={() => scrollToSection("remodelar")}
@@ -74,13 +98,13 @@ export function HeroSection() {
           </Button>
 
           <Button
-            onClick={() => scrollToSection("vender")}
+            onClick={() => navigateToSectionWithTipo("vender", 'Venta')}
             size="lg"
             variant="outline"
             className="border-2 border-white/30 bg-white/10 hover:bg-secondary hover:border-secondary text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
           >
             <Tag className="mr-2 h-5 w-5" />
-            Vender Propiedad
+            Vender/Arrendar Propiedad
           </Button>
         </div>
       </div>

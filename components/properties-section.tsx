@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { CategoryCard } from "./category-card"
 import { PropertyCard } from "./property-card"
 import { PropertyModal } from "./property-modal"
 import { Button } from "@/components/ui/button"
@@ -13,26 +12,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel"
 import { usePropiedades } from "@/hooks/use-propiedades"
-import type { PropiedadCompleta, CategoriaPropiedad } from "@/lib/types"
-
-type Category = CategoriaPropiedad
-
-const categories: {
-  title: string
-  description: string
-  icon: "vivienda" | "apartamento" | "local" | "lote"
-  value: Category
-}[] = [
-  { title: "Vivienda", description: "Casas y casas campestres para tu familia", icon: "vivienda", value: "Vivienda" },
-  {
-    title: "Apartamento",
-    description: "Apartamentos modernos y funcionales",
-    icon: "apartamento",
-    value: "Apartamento",
-  },
-  { title: "Local/Oficina", description: "Espacios comerciales y oficinas", icon: "local", value: "Local/Oficina" },
-  { title: "Lotes/Finca", description: "Terrenos y fincas para construir tu proyecto", icon: "lote", value: "Lotes/Finca" },
-]
+import type { PropiedadCompleta } from "@/lib/types"
 
 // Hook para obtener el número de tarjetas visibles según el tamaño de pantalla
 function useVisibleCards() {
@@ -58,17 +38,28 @@ function useVisibleCards() {
 }
 
 export function PropertiesSection() {
-  const [activeCategory, setActiveCategory] = useState<Category>("Vivienda")
-  const [selectedProperty, setSelectedProperty] = useState<PropiedadCompleta | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null)
   const visibleCards = useVisibleCards()
   
-  // Fetch properties from backend (solo filtra por categoría, RLS se encarga de mostrar solo las activas)
-  const { propiedades, loading } = usePropiedades({
-    categoria: activeCategory,
-  })
+  // Detectar tipo (Venta/Arriendo) desde querystring para filtrar
+  const [tipoAccion, setTipoAccion] = useState<'Venta' | 'Arriendo' | undefined>(undefined)
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const tipo = params.get('tipo')
+      if (tipo === 'Arriendo' || tipo === 'Arriendo') setTipoAccion('Arriendo')
+      else if (tipo === 'Venta') setTipoAccion('Venta')
+      else setTipoAccion(undefined)
+    } catch (err) {
+      setTipoAccion(undefined)
+    }
+  }, [])
+
+  const { propiedades, loading } = usePropiedades(tipoAccion ? { tipo_accion: tipoAccion } : {})
   
   const filteredProperties = propiedades || []
 
@@ -84,21 +75,17 @@ export function PropertiesSection() {
 
   // legacy currentIndex state kept for dots selection fallback; embla will handle scrolling
 
-  const openModal = (property: PropiedadCompleta) => {
-    setSelectedProperty(property)
+  const openModal = (index: number) => {
+    setSelectedIndex(index)
     setIsModalOpen(true)
   }
 
   const closeModal = () => {
     setIsModalOpen(false)
-    setSelectedProperty(null)
+    setSelectedIndex(null)
   }
 
-  // Reset index when category changes
-  const handleCategoryChange = (category: Category) => {
-    setActiveCategory(category)
-    setCurrentIndex(0)
-  }
+  // (sin categorías) - no-op
 
   // Sync embla selected index with local currentIndex state for dots and fallbacks
   useEffect(() => {
@@ -136,19 +123,7 @@ export function PropertiesSection() {
           </p>
         </div>
 
-        {/* Category Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          {categories.map((category) => (
-            <CategoryCard
-              key={category.value}
-              title={category.title}
-              description={category.description}
-              icon={category.icon}
-              isActive={activeCategory === category.value}
-              onClick={() => handleCategoryChange(category.value)}
-            />
-          ))}
-        </div>
+        {/* Se eliminó la selección por categorías: mostramos un solo catálogo de venta */}
 
         {/* Properties Carousel */}
         {loading ? (
@@ -187,12 +162,12 @@ export function PropertiesSection() {
               opts={{ align: 'start', containScroll: 'trimSnaps', dragFree: false, speed: 10 }}
             >
               <CarouselContent className="gap-6">
-                {filteredProperties.map((property) => (
+                {filteredProperties.map((property, idx) => (
                   <CarouselItem
                     key={property.id}
                     className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
                   >
-                    <PropertyCard property={property} onClick={() => openModal(property)} />
+                    <PropertyCard property={property} onClick={() => openModal(idx)} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
@@ -221,13 +196,19 @@ export function PropertiesSection() {
         {/* Empty State */}
         {filteredProperties.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No hay propiedades disponibles en esta categoría.</p>
+            <p className="text-muted-foreground">No hay propiedades disponibles.</p>
           </div>
         )}
       </div>
 
-      {/* Property Modal */}
-      <PropertyModal property={selectedProperty} isOpen={isModalOpen} onClose={closeModal} />
+      {/* Property Modal: pasamos la lista y el índice seleccionado para permitir navegación entre propiedades */}
+      <PropertyModal
+        properties={filteredProperties}
+        selectedIndex={selectedIndex}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onNavigate={(newIndex: number) => setSelectedIndex(newIndex)}
+      />
     </section>
   )
 }

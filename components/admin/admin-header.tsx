@@ -146,11 +146,11 @@ export function AdminHeader({ onLogout, onNavigate, user }: AdminHeaderProps) {
           
           <div className="hidden md:flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-medium text-white">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuario'}</p>
-              <p className="text-xs text-white/70">{user?.email || ''}</p>
+              <p className="text-sm font-medium text-white">{user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : 'Administrador')}</p>
+              <p className="text-xs text-white/70">{user?.email || 'admin@avc.com'}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center shadow-md">
-              <span className="text-white font-semibold">{(user?.user_metadata?.name || user?.email || 'U')[0].toUpperCase()}</span>
+              <span className="text-white font-semibold">{((user?.user_metadata?.name || (user?.email ? user.email : 'Administrador'))[0] || 'A').toUpperCase()}</span>
             </div>
           </div>
           

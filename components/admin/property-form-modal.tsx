@@ -45,7 +45,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     }
     return {
       nombre: "",
-      categoria: "Vivienda" as CategoriaPropiedad,
+      categoria: "Catalogo",
       descripcion: "",
       direccion: "",
       tipo_accion: "Venta" as const,
@@ -364,23 +364,8 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
               />
             </div>
 
-            <div className="space-y-1.5 md:space-y-2">
-              <Label htmlFor="categoria">Categoría *</Label>
-              <Select
-                value={formData.categoria}
-                onValueChange={(value: any) => setFormData({ ...formData, categoria: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Vivienda">Vivienda</SelectItem>
-                  <SelectItem value="Apartamento">Apartamento</SelectItem>
-                  <SelectItem value="Local/Oficina">Local/Oficina</SelectItem>
-                  <SelectItem value="Lotes/Finca">Lotes/Finca</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Categorías removidas: se usa un catálogo único. Campo oculto. */}
+            <input type="hidden" name="categoria" value={String(formData.categoria || 'Catalogo')} />
           </div>
 
           <div className="space-y-1.5 md:space-y-2">

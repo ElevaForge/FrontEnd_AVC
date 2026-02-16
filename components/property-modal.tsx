@@ -4,14 +4,17 @@ import { useState, useEffect } from "react"
 import { X, MapPin, Bed, Bath, Car, Maximize, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
 import type { PropiedadCompleta, ImagenPropiedad } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
 interface PropertyModalProps {
-  property: PropiedadCompleta | null
+  properties: PropiedadCompleta[]
+  selectedIndex: number | null
   isOpen: boolean
   onClose: () => void
+  onNavigate: (newIndex: number) => void
 }
 
 const formatPrice = (price: number) => {
@@ -29,27 +32,29 @@ const estadoLabels = {
   Arrendada: "Arrendada",
 }
 
-export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps) {
+export function PropertyModal({ properties, selectedIndex, isOpen, onClose, onNavigate }: PropertyModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [images, setImages] = useState<string[]>([])
   const [loadingImages, setLoadingImages] = useState(false)
 
-  // Cargar imágenes cuando se abre el modal
+  // Cargar imágenes cuando se abre el modal o cambia la propiedad seleccionada
   useEffect(() => {
-    if (isOpen && property?.id) {
-      loadImages(property.id)
-    } else {
+    if (!isOpen || selectedIndex === null) {
       setImages([])
       setCurrentImageIndex(0)
+      return
     }
-  }, [isOpen, property?.id])
+    const prop = properties[selectedIndex]
+    if (prop?.id) loadImages(prop.id)
+  }, [isOpen, selectedIndex])
 
   const loadImages = async (propertyId: string) => {
     setLoadingImages(true)
     try {
-      // Primero intentar usar las imágenes que ya vienen en la propiedad
-      if (property?.imagenes && property.imagenes.length > 0) {
-        const urls = property.imagenes.map(img => img.url).filter(Boolean)
+      // Intentar usar imágenes incluidas en la propia propiedad
+      const propObj = properties.find(p => p.id === propertyId)
+      if (propObj?.imagenes && propObj.imagenes.length > 0) {
+        const urls = propObj.imagenes.map(img => img.url).filter(Boolean)
         if (urls.length > 0) {
           setImages(urls)
           setLoadingImages(false)
@@ -67,30 +72,32 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
 
       if (error) {
         console.error('Error loading images:', error)
-        // Fallback a imagen principal
-        if (property?.imagen_principal) {
-          setImages([property.imagen_principal])
+        // Fallback a imagen principal si existe
+        if (propObj?.imagen_principal) {
+          setImages([propObj.imagen_principal])
         }
       } else if (data && data.length > 0) {
         const urls = data.map((img: ImagenPropiedad) => img.url).filter(Boolean)
-        setImages(urls.length > 0 ? urls : (property?.imagen_principal ? [property.imagen_principal] : []))
+        setImages(urls.length > 0 ? urls : (propObj?.imagen_principal ? [propObj.imagen_principal] : []))
       } else {
         // Sin imágenes, usar imagen principal si existe
-        if (property?.imagen_principal) {
-          setImages([property.imagen_principal])
+        if (propObj?.imagen_principal) {
+          setImages([propObj.imagen_principal])
         }
       }
     } catch (err) {
       console.error('Error loading images:', err)
-      if (property?.imagen_principal) {
-        setImages([property.imagen_principal])
+      const propObj = properties.find(p => p.id === propertyId)
+      if (propObj?.imagen_principal) {
+        setImages([propObj.imagen_principal])
       }
     } finally {
       setLoadingImages(false)
     }
   }
 
-  if (!isOpen || !property) return null
+  if (!isOpen || selectedIndex === null) return null
+  const property = properties[selectedIndex]
 
   const whatsappMessage = encodeURIComponent(
     `Hola, estoy interesado en la propiedad "${property.nombre}" ubicada en ${property.direccion}. Precio: ${formatPrice(property.precio)}. ¿Podrían darme más información?`,
@@ -106,6 +113,18 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
     if (images.length > 1) {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
     }
+  }
+
+  const prevProperty = () => {
+    if (selectedIndex === null) return
+    const newIndex = (selectedIndex - 1 + properties.length) % properties.length
+    onNavigate(newIndex)
+  }
+
+  const nextProperty = () => {
+    if (selectedIndex === null) return
+    const newIndex = (selectedIndex + 1) % properties.length
+    onNavigate(newIndex)
   }
 
   return (
@@ -127,12 +146,14 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
           {/* Image Gallery - usando contenedor flexible para mostrar imagen completa */}
           <div className="relative w-full min-h-[300px] max-h-[60vh] bg-black flex items-center justify-center">
             {(() => {
-              const url = images[currentImageIndex] || "/placeholder.svg?height=400&width=600&query=property interior"
+              const url = images[currentImageIndex] || "/placeholder.svg"
               const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.includes('video')
               return isVideo ? (
                 <video className="max-w-full max-h-[60vh] object-contain" src={url} controls playsInline />
               ) : (
-                <img src={url} alt={property.nombre} className="max-w-full max-h-[60vh] object-contain" />
+                <div className="relative w-full h-[60vh] flex items-center justify-center">
+                  <Image src={url} alt={property.nombre} fill style={{ objectFit: 'contain' }} />
+                </div>
               )
             })()}
 
@@ -153,6 +174,20 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
                 </button>
               </>
             )}
+
+            {/* Property navigation on desktop */}
+            <button
+              onClick={prevProperty}
+              className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 rounded-full text-white hover:bg-black/50 transition-colors"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              onClick={nextProperty}
+              className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 rounded-full text-white hover:bg-black/50 transition-colors"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
 
             {/* Thumbnails */}
             {images.length > 1 && (
@@ -189,9 +224,7 @@ export function PropertyModal({ property, isOpen, onClose }: PropertyModalProps)
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
               <div>
-                <Badge className="mb-2 bg-primary text-primary-foreground">
-                  {property.categoria.replace('_', '/')}
-                </Badge>
+                {/* Categoría eliminada - catálogo único de venta */}
                 <h2 className="text-2xl md:text-3xl font-bold text-card-foreground">{property.nombre}</h2>
                 <div className="flex items-center text-muted-foreground mt-2">
                   <MapPin className="h-5 w-5 mr-2" />

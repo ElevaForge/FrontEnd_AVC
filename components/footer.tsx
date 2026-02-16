@@ -35,7 +35,7 @@ export function Footer() {
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-lg flex items-center justify-center p-1.5 sm:p-2">
                 <img
                   src="/Logo.svg"
-                  alt="Logo de AVC Inmobiliaria y Constructora - Empresa inmobiliaria en Pasto, Nariño"
+                  alt="AVC Logo"
                   className="w-full h-full object-contain"
                 />
               </div>
