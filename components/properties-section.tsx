@@ -43,19 +43,19 @@ export function PropertiesSection() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null)
   const visibleCards = useVisibleCards()
-  
-  // Detectar tipo (Venta/Arriendo) desde querystring para filtrar
-  const [tipoAccion, setTipoAccion] = useState<'Venta' | 'Arriendo' | undefined>(undefined)
+ 
+  // Tipo de catálogo (Venta / Arriendo) — cada uno es un catálogo separado.
+  const [tipoAccion, setTipoAccion] = useState<'Venta' | 'Arriendo'>('Venta')
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
       const tipo = params.get('tipo')
-      if (tipo === 'Arriendo' || tipo === 'Arriendo') setTipoAccion('Arriendo')
+      if (tipo === 'Arriendo') setTipoAccion('Arriendo')
       else if (tipo === 'Venta') setTipoAccion('Venta')
-      else setTipoAccion(undefined)
+      else setTipoAccion('Venta')
     } catch (err) {
-      setTipoAccion(undefined)
+      setTipoAccion('Venta')
     }
   }, [])
 
@@ -110,6 +110,17 @@ export function PropertiesSection() {
     }
   }, [emblaApi])
 
+  const switchCatalog = (nuevoTipo: 'Venta' | 'Arriendo') => {
+    setTipoAccion(nuevoTipo)
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tipo', nuevoTipo)
+      window.history.replaceState({}, '', url.toString())
+    } catch (err) {
+      // ignore
+    }
+  }
+
   return (
     <section id="comprar" className="py-20 bg-background">
       <div className="container mx-auto px-4">
@@ -156,11 +167,24 @@ export function PropertiesSection() {
               </>
             )}
 
+            {/* Catalog Toggle Buttons */}
+            <div className="flex justify-center gap-2 mb-6">
+              <Button
+                variant={tipoAccion === 'Venta' ? 'secondary' : 'outline'}
+                onClick={() => switchCatalog('Venta')}
+              >
+                Comprar
+              </Button>
+              <Button
+                variant={tipoAccion === 'Arriendo' ? 'secondary' : 'outline'}
+                onClick={() => switchCatalog('Arriendo')}
+              >
+                Arrendar
+              </Button>
+            </div>
+
             {/* Carousel - Embla (swipe/drag enabled) */}
-            <Carousel
-              setApi={setEmblaApi}
-              opts={{ align: 'start', containScroll: 'trimSnaps', dragFree: false, speed: 10 }}
-            >
+            <Carousel setApi={setEmblaApi}>
               <CarouselContent className="gap-6">
                 {filteredProperties.map((property, idx) => (
                   <CarouselItem
