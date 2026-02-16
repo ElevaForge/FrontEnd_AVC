@@ -79,7 +79,7 @@ export function HeroSection() {
           </Button>
 
             <Button
-              onClick={() => navigateToSectionWithTipo("comprar", 'Arriendo')}
+              onClick={() => navigateToSectionWithTipo("catalogo-arrendar", 'Arriendo')}
               size="lg"
               className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
             >
