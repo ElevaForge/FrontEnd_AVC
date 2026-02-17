@@ -56,88 +56,29 @@ export function PropertiesManager() {
     }
 
     try {
-      // 1) Obtener registros de imágenes asociados para eliminar archivos del Storage
-      const { data: imagenes, error: selectErr } = await supabase
-        .from('imagenes_propiedad')
-        .select('id, url')
-        .eq('propiedad_id', id)
+      // Delegar completamente al endpoint admin (service role) para evitar
+      // errores de permisos con Storage/RLS al eliminar desde el cliente.
+      const token = localStorage.getItem('supabase_token')
+      const res = await fetch('/api/admin/delete-property', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ id }),
+      })
 
-      if (selectErr) {
-        console.error('Error fetching property images:', selectErr)
+      if (res.ok) {
+        toast.success('Propiedad eliminada exitosamente')
+        refetch()
+      } else {
+        const data = await res.json().catch(() => ({ error: 'Error desconocido' }))
+        console.error('Error deleting property:', data)
+        toast.error(data.error || 'No se pudo eliminar la propiedad')
       }
-
-      // 2) Extraer rutas relativas al bucket y eliminar archivos usando Storage API
-      if (imagenes && imagenes.length > 0) {
-        const paths: string[] = imagenes
-          .map((img: any) => {
-            try {
-              const raw = String(img.url || '')
-              // Buscar el segmento del bucket en la URL pública
-              const marker = '/propiedades-imagenes/'
-              const idx = raw.indexOf(marker)
-              if (idx >= 0) {
-                return decodeURIComponent(raw.slice(idx + marker.length).split('?')[0])
-              }
-              // Fallback: intentar extraer el último two segments (propertyId/filename)
-              const urlObj = new URL(raw)
-              const parts = urlObj.pathname.split('/').filter(Boolean)
-              // buscar el bucket si aparece en la ruta
-              const bIdx = parts.findIndex(p => p === 'propiedades-imagenes')
-              if (bIdx >= 0) return parts.slice(bIdx + 1).join('/')
-              return parts.slice(-2).join('/')
-            } catch (e) {
-              return null
-            }
-          })
-          .filter(Boolean) as string[]
-
-        if (paths.length > 0) {
-          const { error: storageErr } = await supabase.storage.from('propiedades-imagenes').remove(paths)
-          if (storageErr) {
-            console.error('Error removing storage files:', storageErr)
-            // No abortamos; intentaremos eliminar la propiedad de todas formas
-          }
-        }
-      }
-
-      // 3) Eliminar la propiedad primero (CASCADE debería eliminar imagenes_propiedad automáticamente)
-      const { error: propDeleteErr } = await supabase
-        .from('propiedades')
-        .delete()
-        .eq('id', id)
-      
-      if (propDeleteErr) {
-        console.error('Error deleting property:', propDeleteErr)
-        // Si falla, intentar con el endpoint admin que usa service role
-        try {
-          const token = localStorage.getItem('supabase_token')
-          const res = await fetch('/api/admin/delete-property', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            body: JSON.stringify({ id })
-          })
-          if (res.ok) {
-            toast.success('Propiedad eliminada exitosamente')
-            refetch()
-            return
-          } else {
-            const data = await res.json().catch(() => ({ error: 'Error desconocido' }))
-            console.error('Admin fallback failed:', data)
-            toast.error(data.error || 'No se pudo eliminar la propiedad')
-            return
-          }
-        } catch (e) {
-          console.error('Error calling admin delete endpoint:', e)
-          toast.error('Error al eliminar la propiedad')
-          return
-        }
-      }
-
-      toast.success("Propiedad eliminada exitosamente")
-      refetch()
     } catch (error) {
       console.error('Error deleting property:', error)
-      toast.error("Error al eliminar la propiedad")
+      toast.error('Error al eliminar la propiedad')
     }
   }
 
