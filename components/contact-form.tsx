@@ -138,23 +138,15 @@ export function ContactForm({ type }: ContactFormProps) {
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
-      // Mapear tipo_servicio: en lugar de intentar adivinar los valores
-      // del enum de la BD (que puede cambiar), enviamos null y guardamos
-      // el tipo de servicio seleccionado dentro de la descripción.
-      // Esto es robusto y no depende del esquema del enum.
-      const tipoServicioLabel = formData.tipoServicio
-      const descripcionFinal = formData.descripcion
-        ? `${formData.descripcion}\n\nServicio seleccionado: ${tipoServicioLabel}`
-        : `Servicio seleccionado: ${tipoServicioLabel}`
-
+      // tipo_servicio es text NOT NULL — enviar el valor directamente
       const solicitudData: Record<string, string | null> = {
         tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
-        tipo_servicio: null,
+        tipo_servicio: formData.tipoServicio,
         nombre_persona: formData.nombre,
         email: email || null,
         telefono: telefono || formData.contacto,
         ubicacion: formData.ubicacion,
-        descripcion: descripcionFinal,
+        descripcion: formData.descripcion,
         estado: "Pendiente",
       }
 
