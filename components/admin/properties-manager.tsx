@@ -218,8 +218,9 @@ export function PropertiesManager() {
             }
           }
 
-          // Luego eliminar registros de la BD
-          await supabase.from('imagenes_propiedad').delete().in('id', deletedMediaIds)
+          // Luego eliminar registros de la BD usando RPC para bypassear
+          // la protección de PostgREST contra tablas vinculadas a Storage
+          await supabase.rpc('delete_imagenes_by_ids', { image_ids: deletedMediaIds })
         }
 
         // Subir nuevos archivos en paralelo (máximo 3 a la vez para no sobrecargar)

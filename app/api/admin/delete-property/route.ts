@@ -90,28 +90,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3) Eliminar registros de imagenes_propiedad ANTES de eliminar la propiedad.
-    //    Esto evita que el CASCADE dispare la protección de Supabase contra
-    //    eliminaciones directas de tablas vinculadas a Storage.
-    const { error: imgDeleteErr } = await supabaseAdmin
-      .from('imagenes_propiedad')
-      .delete()
-      .eq('propiedad_id', id)
+    // 3) Eliminar imágenes + propiedad usando RPC (función SQL).
+    //    PostgREST bloquea .from().delete() en tablas vinculadas a Storage
+    //    con el error "Direct deletion from storage tables is not allowed".
+    //    Las funciones RPC ejecutan SQL directamente en PostgreSQL,
+    //    bypaseando esta restricción de PostgREST.
+    const { error: rpcError } = await supabaseAdmin.rpc('delete_property_and_images', {
+      prop_id: id,
+    })
 
-    if (imgDeleteErr) {
-      console.error('Admin: error deleting imagenes_propiedad:', imgDeleteErr)
-      return NextResponse.json({ error: imgDeleteErr.message || 'Error deleting image records' }, { status: 500 })
-    }
-
-    // 4) Ahora eliminar la propiedad (ya sin hijos que disparen triggers de Storage)
-    const { error: propDeleteError } = await supabaseAdmin
-      .from('propiedades')
-      .delete()
-      .eq('id', id)
-
-    if (propDeleteError) {
-      console.error('Admin: error deleting propiedad:', propDeleteError)
-      return NextResponse.json({ error: propDeleteError.message || 'Error deleting property' }, { status: 500 })
+    if (rpcError) {
+      console.error('Admin: error in delete_property_and_images RPC:', rpcError)
+      return NextResponse.json({ error: rpcError.message || 'Error deleting property' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
