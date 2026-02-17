@@ -114,9 +114,10 @@ export function PropertiesManager() {
         if (String(imgDeleteErr.message || '').includes('Direct deletion from storage tables') || (imgDeleteErr as any)?.status === 403) {
           // Llamar al endpoint server-side que usa la service role
           try {
+            const token = localStorage.getItem('supabase_token')
             const res = await fetch('/api/admin/delete-property', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
               body: JSON.stringify({ id })
             })
             if (res.ok) {
@@ -149,9 +150,10 @@ export function PropertiesManager() {
         // Si la eliminación falla por restricciones de Storage, usar el endpoint admin
         if (String(error.message || '').includes('Direct deletion from storage tables') || (error as any)?.status === 403) {
           try {
+            const token = localStorage.getItem('supabase_token')
             const res = await fetch('/api/admin/delete-property', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
               body: JSON.stringify({ id })
             })
             if (res.ok) {

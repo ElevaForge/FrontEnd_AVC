@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { supabaseAdmin, BUCKET_NAME } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, BUCKET_NAME, HAS_SERVICE_ROLE } from '@/lib/supabaseAdmin'
 
 async function extractPathFromUrl(raw: string | null) {
   if (!raw) return null
@@ -20,9 +20,42 @@ async function extractPathFromUrl(raw: string | null) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!HAS_SERVICE_ROLE) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY no configurada en el servidor')
+      return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en el servidor' }, { status: 500 })
+    }
     const body = await req.json()
     const id: string | undefined = body?.id
+    const authHeader = req.headers.get('authorization') || ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : body?.token || null
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+    if (!token) return NextResponse.json({ error: 'Missing user token' }, { status: 401 })
+
+    // Validate user token and ensure requester is owner of the property
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token)
+    if (userErr || !userData?.user) {
+      console.error('Admin: invalid user token', userErr)
+      return NextResponse.json({ error: 'Invalid user token' }, { status: 401 })
+    }
+    const requesterId = userData.user.id
+
+    // Check property owner
+    const { data: prop, error: propErr } = await supabaseAdmin
+      .from('propiedades')
+      .select('owner_id')
+      .eq('id', id)
+      .single()
+
+    if (propErr) {
+      console.error('Admin: error fetching property owner:', propErr)
+      return NextResponse.json({ error: 'Error fetching property' }, { status: 500 })
+    }
+
+    if (!prop || prop.owner_id !== requesterId) {
+      console.error('Admin: requester is not the owner')
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // 1) Obtener registros de imágenes asociados
     const { data: imagenes, error: selectErr } = await supabaseAdmin
