@@ -75,10 +75,16 @@ export async function POST(req: NextRequest) {
         .filter(Boolean) as string[]
 
       if (paths.length > 0) {
-        const { error: storageErr } = await supabaseAdmin.storage.from(BUCKET_NAME).remove(paths)
-        if (storageErr) {
-          console.error('Admin: error removing storage files:', storageErr)
-          // No abortamos, intentamos eliminar la propiedad de todas formas
+        try {
+          const storageRes = await supabaseAdmin.storage.from(BUCKET_NAME).remove(paths)
+          if (storageRes.error) {
+            console.error('Admin: error removing storage files:', storageRes.error)
+            return NextResponse.json({ error: storageRes.error.message || 'Storage removal failed', details: storageRes.error }, { status: 500 })
+          }
+          console.info(`Admin: removed ${paths.length} file(s) from storage`)
+        } catch (e) {
+          console.error('Admin: exception removing storage files:', e)
+          return NextResponse.json({ error: 'Exception removing storage files', details: String(e) }, { status: 500 })
         }
       }
     }
