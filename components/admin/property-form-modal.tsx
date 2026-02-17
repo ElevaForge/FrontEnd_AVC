@@ -45,7 +45,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     }
     return {
       nombre: "",
-      categoria: "Catalogo",
+      categoria: "Vivienda" as CategoriaPropiedad,
       descripcion: "",
       direccion: "",
       tipo_accion: "Venta" as const,
@@ -365,7 +365,7 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
             </div>
 
             {/* Categorías removidas: se usa un catálogo único. Campo oculto. */}
-            <input type="hidden" name="categoria" value={String(formData.categoria || 'Catalogo')} />
+            <input type="hidden" name="categoria" value={String(formData.categoria || 'Vivienda')} />
           </div>
 
           <div className="space-y-1.5 md:space-y-2">
