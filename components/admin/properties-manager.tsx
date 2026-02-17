@@ -10,7 +10,7 @@ import { PropertyFormModal, type PendingMediaFile } from "./property-form-modal"
 import { usePropiedades } from "@/hooks/use-propiedades"
 import type { PropiedadCompleta } from "@/lib/types"
 import { toast } from "sonner"
-import { supabase } from "@/lib/supabase"
+import { supabase, uploadMultimedia } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 
 const formatPrice = (price: number) => {
@@ -110,6 +110,31 @@ export function PropertiesManager() {
 
       if (imgDeleteErr) {
         console.error('Error deleting property images records:', imgDeleteErr)
+        // Si la eliminación falla por políticas (403), intentamos fallback al endpoint admin
+        if (String(imgDeleteErr.message || '').includes('Direct deletion from storage tables') || (imgDeleteErr as any)?.status === 403) {
+          // Llamar al endpoint server-side que usa la service role
+          try {
+            const res = await fetch('/api/admin/delete-property', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            })
+            if (res.ok) {
+              toast.success('Propiedad y sus archivos eliminados (vía admin)')
+              refetch()
+              return
+            } else {
+              const txt = await res.text()
+              console.error('Admin fallback failed:', txt)
+              toast.error('No se pudo eliminar la propiedad (admin fallback falló)')
+              return
+            }
+          } catch (e) {
+            console.error('Error calling admin delete endpoint:', e)
+            toast.error('No se pudo eliminar la propiedad (admin fallback error)')
+            return
+          }
+        }
         // Continuar aunque falle la eliminación de imágenes en la tabla
       }
 
@@ -121,6 +146,31 @@ export function PropertiesManager() {
       
       if (error) {
         console.error('Error deleting property:', error)
+        // Si la eliminación falla por restricciones de Storage, usar el endpoint admin
+        if (String(error.message || '').includes('Direct deletion from storage tables') || (error as any)?.status === 403) {
+          try {
+            const res = await fetch('/api/admin/delete-property', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            })
+            if (res.ok) {
+              toast.success('Propiedad y sus archivos eliminados (vía admin)')
+              refetch()
+              return
+            } else {
+              const txt = await res.text()
+              console.error('Admin fallback failed:', txt)
+              toast.error('No se pudo eliminar la propiedad (admin fallback falló)')
+              return
+            }
+          } catch (e) {
+            console.error('Error calling admin delete endpoint:', e)
+            toast.error('No se pudo eliminar la propiedad (admin fallback error)')
+            return
+          }
+        }
+
         toast.error(error.message || "Error al eliminar la propiedad")
       } else {
         toast.success("Propiedad eliminada exitosamente")
@@ -250,38 +300,10 @@ export function PropertiesManager() {
         if (newMediaFiles.length > 0) {
           const uploadPromises = newMediaFiles.map(async (media, i) => {
             try {
-              const fileExt = media.file.name.split('.').pop()
-              const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}-${i}.${fileExt}`
-              const filePath = `${propertyId}/${fileName}`
-
-              const { error: uploadError } = await supabase.storage
-                .from('propiedades-imagenes')
-                .upload(filePath, media.file, { cacheControl: '3600', upsert: false })
-              
-              if (uploadError) {
-                console.error('Upload error:', uploadError)
-                return null
-              }
-
-              const { data: publicData } = await supabase.storage
-                .from('propiedades-imagenes')
-                .getPublicUrl(filePath)
-              const publicUrl = (publicData as any)?.publicUrl || ''
-
               const esPrincipal = principalMediaId === media.id
-
-              const { error: insertErr } = await supabase.from('imagenes_propiedad').insert({
-                propiedad_id: propertyId,
-                url: publicUrl,
-                url_thumbnail: null,
-                titulo: null,
-                descripcion: null,
-                orden: i,
-                es_principal: esPrincipal,
-              })
-
-              if (insertErr) {
-                console.error('Insert media error:', insertErr)
+              const { data: uploadResult, error: uploadErr } = await uploadMultimedia(media.file as any, propertyId, esPrincipal)
+              if (uploadErr || !uploadResult) {
+                console.error('UploadMultimedia error:', uploadErr)
                 return null
               }
               return true
