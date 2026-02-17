@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { supabaseAdmin, BUCKET_NAME, HAS_SERVICE_ROLE } from '@/lib/supabaseAdmin'
 
-async function extractPathFromUrl(raw: string | null) {
+function extractPathFromUrl(raw: string | null): string | null {
   if (!raw) return null
   try {
     const marker = '/propiedades-imagenes/'
@@ -57,15 +57,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // 1) Obtener registros de imágenes asociados
+    // 1) Obtener registros de imágenes asociados para eliminar del Storage
     const { data: imagenes, error: selectErr } = await supabaseAdmin
       .from('imagenes_propiedad')
       .select('id, url')
       .eq('propiedad_id', id)
 
     if (selectErr) {
+      // Solo log, no abortamos - la propiedad puede no tener imágenes
       console.error('Admin: error fetching property images:', selectErr)
-      return NextResponse.json({ error: selectErr.message || 'Error fetching images' }, { status: 500 })
     }
 
     // 2) Extraer rutas y eliminar archivos usando Storage API
@@ -76,27 +76,33 @@ export async function POST(req: NextRequest) {
 
       if (paths.length > 0) {
         const { error: storageErr } = await supabaseAdmin.storage.from(BUCKET_NAME).remove(paths)
-        if (storageErr) console.error('Admin: error removing storage files:', storageErr)
+        if (storageErr) {
+          console.error('Admin: error removing storage files:', storageErr)
+          // No abortamos, intentamos eliminar la propiedad de todas formas
+        }
       }
     }
 
-    // 3) Eliminar registros de imágenes en la tabla
-    const { error: imgDeleteErr } = await supabaseAdmin
-      .from('imagenes_propiedad')
-      .delete()
-      .eq('propiedad_id', id)
-
-    if (imgDeleteErr) console.error('Admin: error deleting imagenes_propiedad rows:', imgDeleteErr)
-
-    // 4) Eliminar propiedad
-    const { error } = await supabaseAdmin
+    // 3) Eliminar la propiedad primero (CASCADE debería eliminar imagenes_propiedad automáticamente)
+    const { error: propDeleteError } = await supabaseAdmin
       .from('propiedades')
       .delete()
       .eq('id', id)
 
-    if (error) {
-      console.error('Admin: error deleting propiedad:', error)
-      return NextResponse.json({ error: error.message || 'Error deleting property' }, { status: 500 })
+    if (propDeleteError) {
+      console.error('Admin: error deleting propiedad:', propDeleteError)
+      return NextResponse.json({ error: propDeleteError.message || 'Error deleting property' }, { status: 500 })
+    }
+
+    // 4) Si la propiedad se eliminó pero los registros de imágenes persisten (no hay CASCADE),
+    // intentar eliminarlos. Si falla, no es crítico porque la propiedad ya no existe.
+    try {
+      await supabaseAdmin
+        .from('imagenes_propiedad')
+        .delete()
+        .eq('propiedad_id', id)
+    } catch (imgErr) {
+      console.warn('Admin: could not cleanup orphaned image records (non-critical):', imgErr)
     }
 
     return NextResponse.json({ success: true })

@@ -95,89 +95,46 @@ export function PropertiesManager() {
           const { error: storageErr } = await supabase.storage.from('propiedades-imagenes').remove(paths)
           if (storageErr) {
             console.error('Error removing storage files:', storageErr)
-            // No abortamos; intentaremos limpiar registros en BD
-          } else {
-            toast.success(`${paths.length} archivo(s) eliminados del storage`)
+            // No abortamos; intentaremos eliminar la propiedad de todas formas
           }
         }
       }
 
-      // 3) Eliminar registros de imágenes en la tabla (si existen)
-      const { error: imgDeleteErr } = await supabase
-        .from('imagenes_propiedad')
-        .delete()
-        .eq('propiedad_id', id)
-
-      if (imgDeleteErr) {
-        console.error('Error deleting property images records:', imgDeleteErr)
-        // Si la eliminación falla por políticas (403), intentamos fallback al endpoint admin
-        if (String(imgDeleteErr.message || '').includes('Direct deletion from storage tables') || (imgDeleteErr as any)?.status === 403) {
-          // Llamar al endpoint server-side que usa la service role
-          try {
-            const token = localStorage.getItem('supabase_token')
-            const res = await fetch('/api/admin/delete-property', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({ id })
-            })
-            if (res.ok) {
-              toast.success('Propiedad y sus archivos eliminados (vía admin)')
-              refetch()
-              return
-            } else {
-              const txt = await res.text()
-              console.error('Admin fallback failed:', txt)
-              toast.error('No se pudo eliminar la propiedad (admin fallback falló)')
-              return
-            }
-          } catch (e) {
-            console.error('Error calling admin delete endpoint:', e)
-            toast.error('No se pudo eliminar la propiedad (admin fallback error)')
-            return
-          }
-        }
-        // Continuar aunque falle la eliminación de imágenes en la tabla
-      }
-
-      // 4) Finalmente eliminar la propiedad
-      const { error } = await supabase
+      // 3) Eliminar la propiedad primero (CASCADE debería eliminar imagenes_propiedad automáticamente)
+      const { error: propDeleteErr } = await supabase
         .from('propiedades')
         .delete()
         .eq('id', id)
       
-      if (error) {
-        console.error('Error deleting property:', error)
-        // Si la eliminación falla por restricciones de Storage, usar el endpoint admin
-        if (String(error.message || '').includes('Direct deletion from storage tables') || (error as any)?.status === 403) {
-          try {
-            const token = localStorage.getItem('supabase_token')
-            const res = await fetch('/api/admin/delete-property', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({ id })
-            })
-            if (res.ok) {
-              toast.success('Propiedad y sus archivos eliminados (vía admin)')
-              refetch()
-              return
-            } else {
-              const txt = await res.text()
-              console.error('Admin fallback failed:', txt)
-              toast.error('No se pudo eliminar la propiedad (admin fallback falló)')
-              return
-            }
-          } catch (e) {
-            console.error('Error calling admin delete endpoint:', e)
-            toast.error('No se pudo eliminar la propiedad (admin fallback error)')
+      if (propDeleteErr) {
+        console.error('Error deleting property:', propDeleteErr)
+        // Si falla, intentar con el endpoint admin que usa service role
+        try {
+          const token = localStorage.getItem('supabase_token')
+          const res = await fetch('/api/admin/delete-property', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ id })
+          })
+          if (res.ok) {
+            toast.success('Propiedad eliminada exitosamente')
+            refetch()
+            return
+          } else {
+            const data = await res.json().catch(() => ({ error: 'Error desconocido' }))
+            console.error('Admin fallback failed:', data)
+            toast.error(data.error || 'No se pudo eliminar la propiedad')
             return
           }
+        } catch (e) {
+          console.error('Error calling admin delete endpoint:', e)
+          toast.error('Error al eliminar la propiedad')
+          return
         }
-
-        toast.error(error.message || "Error al eliminar la propiedad")
-      } else {
-        toast.success("Propiedad eliminada exitosamente")
-        refetch()
       }
+
+      toast.success("Propiedad eliminada exitosamente")
+      refetch()
     } catch (error) {
       console.error('Error deleting property:', error)
       toast.error("Error al eliminar la propiedad")
@@ -278,25 +235,51 @@ export function PropertiesManager() {
       }
 
       if (propertyId) {
-        // Ejecutar operaciones de BD en paralelo donde sea posible
-        
-        // Resetear imagen principal y eliminar imágenes marcadas
-        const initialOps: Promise<any>[] = [
-          (async () => {
-            await supabase.from('imagenes_propiedad').update({ es_principal: false }).eq('propiedad_id', propertyId)
-          })()
-        ]
+        // Resetear imagen principal
+        await supabase.from('imagenes_propiedad').update({ es_principal: false }).eq('propiedad_id', propertyId)
 
-        // Eliminar imágenes marcadas para eliminación
+        // Eliminar imágenes marcadas para eliminación (Storage + BD)
         if (deletedMediaIds.length > 0) {
-          initialOps.push(
-            (async () => {
-              await supabase.from('imagenes_propiedad').delete().in('id', deletedMediaIds)
-            })()
-          )
-        }
+          // Primero obtener URLs de las imágenes a eliminar para borrar del Storage
+          const { data: imagenesAEliminar } = await supabase
+            .from('imagenes_propiedad')
+            .select('id, url')
+            .in('id', deletedMediaIds)
 
-        await Promise.all(initialOps)
+          if (imagenesAEliminar && imagenesAEliminar.length > 0) {
+            // Extraer rutas del Storage
+            const storagePaths: string[] = imagenesAEliminar
+              .map((img: any) => {
+                try {
+                  const raw = String(img.url || '')
+                  const marker = '/propiedades-imagenes/'
+                  const idx = raw.indexOf(marker)
+                  if (idx >= 0) {
+                    return decodeURIComponent(raw.slice(idx + marker.length).split('?')[0])
+                  }
+                  const urlObj = new URL(raw)
+                  const parts = urlObj.pathname.split('/').filter(Boolean)
+                  const bIdx = parts.findIndex(p => p === 'propiedades-imagenes')
+                  if (bIdx >= 0) return parts.slice(bIdx + 1).join('/')
+                  return parts.slice(-2).join('/')
+                } catch (e) {
+                  return null
+                }
+              })
+              .filter(Boolean) as string[]
+
+            // Eliminar archivos del Storage
+            if (storagePaths.length > 0) {
+              const { error: storageErr } = await supabase.storage.from('propiedades-imagenes').remove(storagePaths)
+              if (storageErr) {
+                console.error('Error removing storage files:', storageErr)
+              }
+            }
+          }
+
+          // Luego eliminar registros de la BD
+          await supabase.from('imagenes_propiedad').delete().in('id', deletedMediaIds)
+        }
 
         // Subir nuevos archivos en paralelo (máximo 3 a la vez para no sobrecargar)
         if (newMediaFiles.length > 0) {

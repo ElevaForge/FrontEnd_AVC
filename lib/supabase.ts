@@ -1,14 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import type { TipoArchivo, MultimediaUploadResult, MultimediaUploadError } from './types'
 
-// Default to the known Supabase project URL if env var is not provided
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bjvzasgfdxlsgvaizrli.supabase.co'
-// WARNING: anon key in source — only for local/testing when you chose not to use env vars.
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqdnphc2dmZHhsc2d2YWl6cmxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NTYwMzYsImV4cCI6MjA4NDUzMjAzNn0.tJl5zlW3zHhaGnMGjExnM5ll7M9WU6Ds46QKW1p9O_M'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-if (!supabaseAnonKey) {
-  console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY no está disponible. Algunas funciones pueden fallar.')
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('⚠️ Faltan variables de entorno: NEXT_PUBLIC_SUPABASE_URL y/o NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
