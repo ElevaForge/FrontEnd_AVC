@@ -56,18 +56,64 @@ export function PropertiesManager() {
     }
 
     try {
-      // Primero eliminar las imágenes asociadas
-      const { error: imgError } = await supabase
+      // 1) Obtener registros de imágenes asociados para eliminar archivos del Storage
+      const { data: imagenes, error: selectErr } = await supabase
+        .from('imagenes_propiedad')
+        .select('id, url')
+        .eq('propiedad_id', id)
+
+      if (selectErr) {
+        console.error('Error fetching property images:', selectErr)
+      }
+
+      // 2) Extraer rutas relativas al bucket y eliminar archivos usando Storage API
+      if (imagenes && imagenes.length > 0) {
+        const paths: string[] = imagenes
+          .map((img: any) => {
+            try {
+              const raw = String(img.url || '')
+              // Buscar el segmento del bucket en la URL pública
+              const marker = '/propiedades-imagenes/'
+              const idx = raw.indexOf(marker)
+              if (idx >= 0) {
+                return decodeURIComponent(raw.slice(idx + marker.length).split('?')[0])
+              }
+              // Fallback: intentar extraer el último two segments (propertyId/filename)
+              const urlObj = new URL(raw)
+              const parts = urlObj.pathname.split('/').filter(Boolean)
+              // buscar el bucket si aparece en la ruta
+              const bIdx = parts.findIndex(p => p === 'propiedades-imagenes')
+              if (bIdx >= 0) return parts.slice(bIdx + 1).join('/')
+              return parts.slice(-2).join('/')
+            } catch (e) {
+              return null
+            }
+          })
+          .filter(Boolean) as string[]
+
+        if (paths.length > 0) {
+          const { error: storageErr } = await supabase.storage.from('propiedades-imagenes').remove(paths)
+          if (storageErr) {
+            console.error('Error removing storage files:', storageErr)
+            // No abortamos; intentaremos limpiar registros en BD
+          } else {
+            toast.success(`${paths.length} archivo(s) eliminados del storage`)
+          }
+        }
+      }
+
+      // 3) Eliminar registros de imágenes en la tabla (si existen)
+      const { error: imgDeleteErr } = await supabase
         .from('imagenes_propiedad')
         .delete()
         .eq('propiedad_id', id)
 
-      if (imgError) {
-        console.error('Error deleting property images:', imgError)
-        // Continuar aunque falle la eliminación de imágenes
+      if (imgDeleteErr) {
+        console.error('Error deleting property images records:', imgDeleteErr)
+        // Continuar aunque falle la eliminación de imágenes en la tabla
       }
 
-      // Luego eliminar la propiedad usando Supabase directamente
+      // 4) Finalmente eliminar la propiedad
       const { error } = await supabase
         .from('propiedades')
         .delete()
