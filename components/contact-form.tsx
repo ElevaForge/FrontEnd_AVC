@@ -138,26 +138,18 @@ export function ContactForm({ type }: ContactFormProps) {
       const telefono = formData.contacto.match(/^\d+$/) ? formData.contacto : ''
       const email = formData.contacto.includes('@') ? formData.contacto : ''
 
-      // Mapear tipo_servicio a los valores canónicos esperados por la BD
-      // Valores del enum tipo_servicio: Comprar, Arrendar, Vender, Renovacion
-      const tipoServicioMap: Record<string, string> = {
-        'remodelacion': 'Renovacion',
-        'construccion': 'Renovacion',
-        'vender': 'Vender',
-        'arrendar': 'Arrendar',
-      }
-
-      // Crear solicitud directamente en Supabase
-      // No enviar valores no mapeados directamente al enum de la BD.
-      // Si no hay mapeo definido, enviar null y adjuntar la selección en la descripción.
-      const mappedTipoServicio = tipoServicioMap[formData.tipoServicio]
+      // Mapear tipo_servicio: en lugar de intentar adivinar los valores
+      // del enum de la BD (que puede cambiar), enviamos null y guardamos
+      // el tipo de servicio seleccionado dentro de la descripción.
+      // Esto es robusto y no depende del esquema del enum.
+      const tipoServicioLabel = formData.tipoServicio
       const descripcionFinal = formData.descripcion
-        ? `${formData.descripcion}\n\nServicio seleccionado: ${formData.tipoServicio}`
-        : `Servicio seleccionado: ${formData.tipoServicio}`
+        ? `${formData.descripcion}\n\nServicio seleccionado: ${tipoServicioLabel}`
+        : `Servicio seleccionado: ${tipoServicioLabel}`
 
       const solicitudData: Record<string, string | null> = {
         tipo: type === "remodelacion" ? "Remodelacion" : "Venta",
-        tipo_servicio: mappedTipoServicio || null,
+        tipo_servicio: null,
         nombre_persona: formData.nombre,
         email: email || null,
         telefono: telefono || formData.contacto,
