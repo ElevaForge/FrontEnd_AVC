@@ -187,11 +187,11 @@ export function PropertiesSection() {
                 )}
 
                 <Carousel setApi={setEmblaVentaApi}>
-                  <CarouselContent className="gap-6">
+                  <CarouselContent className="-ml-4">
                     {ventaPropiedades.map((property, idx) => (
                       <CarouselItem
                         key={property.id}
-                        className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
+                        className="pl-4 basis-full sm:basis-1/2 lg:basis-1/3"
                       >
                         <PropertyCard property={property} onClick={() => openModalFrom(ventaPropiedades, idx)} />
                       </CarouselItem>
@@ -245,11 +245,11 @@ export function PropertiesSection() {
                 )}
 
                 <Carousel setApi={setEmblaArriendoApi}>
-                  <CarouselContent className="gap-6">
+                  <CarouselContent className="-ml-4">
                     {arriendoPropiedades.map((property, idx) => (
                       <CarouselItem
                         key={property.id}
-                        className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]"
+                        className="pl-4 basis-full sm:basis-1/2 lg:basis-1/3"
                       >
                         <PropertyCard property={property} onClick={() => openModalFrom(arriendoPropiedades, idx)} />
                       </CarouselItem>

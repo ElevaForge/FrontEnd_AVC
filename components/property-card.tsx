@@ -37,18 +37,15 @@ export function PropertyCard({ property, onClick }: PropertyCardProps) {
       className="group bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
       onClick={onClick}
     >
-      {/* Image Container - altura flexible que se adapta a la imagen */}
-      <div className="relative w-full bg-muted flex items-center justify-center overflow-hidden">
-        <div className="relative w-full h-[260px] md:h-[300px]">
-          <Image
-            src={property.imagen_principal || "/placeholder.svg"}
-            alt={property.nombre}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            style={{ objectFit: 'contain' }}
-            className="transition-transform duration-300 group-hover:scale-105"
-          />
-        </div>
+      {/* Image Container - aspect ratio consistente para todas las pantallas */}
+      <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
+        <Image
+          src={property.imagen_principal || "/placeholder.svg"}
+          alt={property.nombre}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+        />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none" />
 
         {/* Status Badge */}
