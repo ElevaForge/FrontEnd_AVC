@@ -3,5 +3,7 @@ Disallow: /admin/
 Disallow: /api/
 Allow: /
 
-# Replace the Sitemap URL below with your production domain
-Sitemap: https://avcinmobiliariayconstructora.com/sitemap.xml
+Sitemap: https://www.avcinmobiliariayconstructora.com/sitemap.xml
+
+# Host
+Host: https://www.avcinmobiliariayconstructora.com

@@ -71,9 +71,18 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" dir="ltr">
       <head>
+        <meta charSet="utf-8" />
+        <meta name="color-scheme" content="light" />
+        <meta name="theme-color" content="#1e2a4a" />
+        <meta name="format-detection" content="telephone=no" />
         <link rel="canonical" href="https://www.avcinmobiliariayconstructora.com" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="manifest" href="/manifest.json" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
