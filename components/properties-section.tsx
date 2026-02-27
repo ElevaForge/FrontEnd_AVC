@@ -207,11 +207,17 @@ export function PropertiesSection() {
                         onClick={() => emblaVentaApi?.scrollTo(index)}
                         className={`w-2 h-2 rounded-full transition-colors ${
                           (emblaVentaApi ? emblaVentaApi.selectedScrollSnap() === index : index === currentIndex)
-                            ? "bg-primary"
-                            : "bg-primary/30"
+                            ? "bg-secondary"
+                            : "bg-secondary/30"
                         }`}
                       />
                     ))}
+                  </div>
+                )}
+
+                {ventaPropiedades.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No hay propiedades disponibles en esta categoría.</p>
                   </div>
                 )}
               </div>
@@ -265,11 +271,17 @@ export function PropertiesSection() {
                         onClick={() => emblaArriendoApi?.scrollTo(index)}
                         className={`w-2 h-2 rounded-full transition-colors ${
                           (emblaArriendoApi ? emblaArriendoApi.selectedScrollSnap() === index : index === currentIndex)
-                            ? "bg-primary"
-                            : "bg-primary/30"
+                            ? "bg-secondary"
+                            : "bg-secondary/30"
                         }`}
                       />
                     ))}
+                  </div>
+                )}
+
+                {arriendoPropiedades.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No hay propiedades disponibles en esta categoría.</p>
                   </div>
                 )}
               </div>

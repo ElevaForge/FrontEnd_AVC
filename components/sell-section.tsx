@@ -58,8 +58,8 @@ export function SellSection() {
                 {steps.map((step, index) => (
                   <div key={index} className="relative flex gap-6 pb-8 last:pb-0">
                     {/* Icon Circle */}
-                    <div className="relative z-10 flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg">
-                      <step.icon className="h-6 w-6 text-primary-foreground" />
+                    <div className="relative z-10 flex-shrink-0 w-12 h-12 bg-secondary rounded-full flex items-center justify-center shadow-lg">
+                      <step.icon className="h-6 w-6 text-white" />
                     </div>
 
                     {/* Content */}
