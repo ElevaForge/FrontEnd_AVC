@@ -30,11 +30,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: "AVC Inmobiliaria y Constructora | Soluciones sólidas para tus proyectos de vida",
     description: "Compra, vende y remodela propiedades con AVC. Servicios inmobiliarios en Colombia, especialidad en Pasto y Nariño.",
-    url: "https://www.avcinmobiliaria.com", // Reemplaza con la URL real
+    url: "https://www.avcinmobiliariayconstructora.com",
     siteName: "AVC Inmobiliaria y Constructora",
     images: [
       {
-        url: "/Logo.svg",
+        url: "https://www.avcinmobiliariayconstructora.com/Logo.svg",
         width: 1200,
         height: 630,
         alt: "Logo de AVC Inmobiliaria y Constructora",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AVC Inmobiliaria y Constructora | Soluciones sólidas para tus proyectos de vida",
     description: "Compra, vende y remodela propiedades con AVC. Servicios inmobiliarios en Colombia.",
-    images: ["/Logo.svg"],
+    images: ["https://www.avcinmobiliariayconstructora.com/Logo.svg"],
   },
   robots: {
     index: true,
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: "https://www.avcinmobiliaria.com", // Reemplaza con la URL real
+    canonical: "https://www.avcinmobiliariayconstructora.com",
   },
 }
 
@@ -71,9 +71,18 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" dir="ltr">
       <head>
-        <link rel="canonical" href="https://www.avcinmobiliaria.com" />
+        <meta charSet="utf-8" />
+        <meta name="color-scheme" content="light" />
+        <meta name="theme-color" content="#1e2a4a" />
+        <meta name="format-detection" content="telephone=no" />
+        <link rel="canonical" href="https://www.avcinmobiliariayconstructora.com" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="manifest" href="/manifest.json" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -82,8 +91,8 @@ export default function RootLayout({
               "@type": "RealEstateAgent",
               "name": "AVC Inmobiliaria y Constructora",
               "description": "Soluciones sólidas para tus proyectos de vida. Compra, vende y remodela propiedades en Colombia.",
-              "url": "https://www.avcinmobiliaria.com",
-              "logo": "https://www.avcinmobiliaria.com/Logo.svg",
+              "url": "https://www.avcinmobiliariayconstructora.com",
+              "logo": "https://www.avcinmobiliariayconstructora.com/Logo.svg",
               "address": {
                 "@type": "PostalAddress",
                 "streetAddress": "Mz 4 cs 1 Villa Aurora",
