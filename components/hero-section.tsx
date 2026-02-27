@@ -90,8 +90,7 @@ export function HeroSection() {
           <Button
             onClick={() => scrollToSection("remodelar")}
             size="lg"
-            variant="outline"
-            className="border-2 border-white/30 bg-white/10 hover:bg-secondary hover:border-secondary text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
+            className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
           >
             <Wrench className="mr-2 h-5 w-5" />
             Remodelar
@@ -100,8 +99,7 @@ export function HeroSection() {
           <Button
             onClick={() => navigateToSectionWithTipo("vender", 'Venta')}
             size="lg"
-            variant="outline"
-            className="border-2 border-white/30 bg-white/10 hover:bg-secondary hover:border-secondary text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
+            className="bg-secondary hover:bg-secondary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-full sm:w-auto"
           >
             <Tag className="mr-2 h-5 w-5" />
             Vender/Arrendar Propiedad
