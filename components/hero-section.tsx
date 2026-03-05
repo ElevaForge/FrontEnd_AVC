@@ -52,7 +52,7 @@ export function HeroSection() {
             </div>
           </div>
           <p className="mt-4 text-sm md:text-base text-primary-foreground/80 tracking-widest uppercase">
-            Inmobiliaria y Constructora
+            AVC Inmobiliaria y Constructora
           </p>
         </div>
 
