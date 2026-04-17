@@ -10,6 +10,7 @@ export type EstadoPropiedad = 'Disponible' | 'Vendida' | 'Arrendada' | 'Reservad
 export type TipoSolicitud = 'Informacion' | 'Visita' | 'Remodelacion' | 'Venta'
 export type EstadoSolicitud = 'Pendiente' | 'Contactado' | 'En_Proceso' | 'Completado' | 'Cancelado'
 export type TipoArchivo = 'image' | 'video'
+export type TipoAnuncio = 'General' | 'Promocion' | 'Urgente' | 'Evento'
 
 // Propiedad
 export interface Propiedad {
@@ -219,5 +220,49 @@ export interface MultimediaUploadResult {
 
 export interface MultimediaUploadError {
   message: string
-  code: 'UPLOAD_FAILED' | 'URL_FAILED' | 'INSERT_FAILED' | 'INVALID_FILE_TYPE'
+  code:
+    | 'UPLOAD_FAILED'
+    | 'URL_FAILED'
+    | 'INSERT_FAILED'
+    | 'INVALID_FILE_TYPE'
+    | 'FILE_TOO_LARGE'
+    | 'UNSUPPORTED_MIME_TYPE'
+}
+
+// Anuncios
+export interface Anuncio {
+  id: string
+  titulo: string
+  resumen: string | null
+  contenido: string
+  tipo: TipoAnuncio
+  prioridad: number
+  activo: boolean
+  destacado: boolean
+  galeria_urls: string[] | null
+  imagen_url: string | null
+  video_url: string | null
+  cta_texto: string | null
+  cta_url: string | null
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AnuncioCreateForm {
+  titulo: string
+  resumen?: string
+  contenido: string
+  tipo?: TipoAnuncio
+  prioridad?: number
+  activo?: boolean
+  destacado?: boolean
+  galeria_urls?: string[]
+  imagen_url?: string
+  video_url?: string
+  cta_texto?: string
+  cta_url?: string
+  fecha_inicio?: string
+  fecha_fin?: string
 }

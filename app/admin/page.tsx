@@ -4,12 +4,13 @@ import { useState } from "react"
 import { DashboardStats } from "@/components/admin/dashboard-stats"
 import { PropertiesManager } from "@/components/admin/properties-manager"
 import { RequestsViewer } from "@/components/admin/requests-viewer"
+import { AnnouncementsManager } from "@/components/admin/announcements-manager"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { useAuth } from "@/hooks/use-auth"
 import { Loader2 } from "lucide-react"
 
-type AdminView = "dashboard" | "properties" | "requests" | "solicitudes"
+type AdminView = "dashboard" | "properties" | "announcements" | "requests" | "solicitudes"
 
 export default function AdminPage() {
   const [currentView, setCurrentView] = useState<AdminView>("dashboard")
@@ -23,7 +24,7 @@ export default function AdminPage() {
   const handleNavigate = (section: string) => {
     if (section === 'solicitudes' || section === 'requests') {
       setCurrentView('requests')
-    } else if (section === 'dashboard' || section === 'properties') {
+    } else if (section === 'dashboard' || section === 'properties' || section === 'announcements') {
       setCurrentView(section as AdminView)
     }
   }
@@ -125,6 +126,7 @@ export default function AdminPage() {
         <main className="flex-1 p-4 md:p-6 lg:p-8 ml-0 lg:ml-64 min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-73px)]">
           {currentView === "dashboard" && <DashboardStats />}
           {currentView === "properties" && <PropertiesManager />}
+          {currentView === "announcements" && <AnnouncementsManager />}
           {(currentView === "requests" || currentView === "solicitudes") && <RequestsViewer />}
         </main>
       </div>

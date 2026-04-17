@@ -1,13 +1,13 @@
 "use client"
 
-import { LayoutDashboard, Home, FileText, Menu, X } from "lucide-react"
+import { LayoutDashboard, Home, FileText, Menu, X, Megaphone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 interface AdminSidebarProps {
   currentView: string
-  onViewChange: (view: "dashboard" | "properties" | "requests") => void
+  onViewChange: (view: "dashboard" | "properties" | "requests" | "announcements") => void
 }
 
 export function AdminSidebar({ currentView, onViewChange }: AdminSidebarProps) {
@@ -16,6 +16,7 @@ export function AdminSidebar({ currentView, onViewChange }: AdminSidebarProps) {
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "properties", label: "Propiedades", icon: Home },
+    { id: "announcements", label: "Anuncios", icon: Megaphone },
     { id: "requests", label: "Solicitudes", icon: FileText },
   ]
 

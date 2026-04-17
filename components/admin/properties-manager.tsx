@@ -307,6 +307,8 @@ export function PropertiesManager() {
                   <img
                     src={property.imagen_principal || "/placeholder.svg"}
                     alt={property.nombre}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </div>

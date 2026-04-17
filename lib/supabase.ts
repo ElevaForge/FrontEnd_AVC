@@ -12,6 +12,71 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 const BUCKET_NAME = 'propiedades-imagenes'
 
+export const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024
+export const MAX_VIDEO_SIZE_BYTES = 80 * 1024 * 1024
+
+export const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+])
+
+export const ALLOWED_VIDEO_MIME_TYPES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+])
+
+function sanitizeFileName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9._-]/g, '')
+    .replace(/-+/g, '-')
+}
+
+export function validateMultimediaFile(
+  file: File,
+): { valid: true } | { valid: false; code: MultimediaUploadError['code']; message: string } {
+  const tipoArchivo = detectFileType(file.type)
+
+  if (!tipoArchivo) {
+    return {
+      valid: false,
+      code: 'INVALID_FILE_TYPE',
+      message: `Tipo de archivo inválido: ${file.type}`,
+    }
+  }
+
+  if (tipoArchivo === 'image' && !ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+    return {
+      valid: false,
+      code: 'UNSUPPORTED_MIME_TYPE',
+      message: `Formato de imagen no permitido: ${file.type}`,
+    }
+  }
+
+  if (tipoArchivo === 'video' && !ALLOWED_VIDEO_MIME_TYPES.has(file.type)) {
+    return {
+      valid: false,
+      code: 'UNSUPPORTED_MIME_TYPE',
+      message: `Formato de video no permitido: ${file.type}`,
+    }
+  }
+
+  const maxSize = tipoArchivo === 'image' ? MAX_IMAGE_SIZE_BYTES : MAX_VIDEO_SIZE_BYTES
+  if (file.size > maxSize) {
+    return {
+      valid: false,
+      code: 'FILE_TOO_LARGE',
+      message: `Archivo demasiado grande. Límite: ${tipoArchivo === 'image' ? '8MB' : '80MB'}`,
+    }
+  }
+
+  return { valid: true }
+}
+
 /**
  * Detects if a file is an image or video based on its MIME type.
  * @param mimeType - The MIME type of the file (e.g., "image/png", "video/mp4")
@@ -47,27 +112,31 @@ export async function uploadMultimedia(
   propertyId: string,
   esPrincipal: boolean = false
 ): Promise<{ data: MultimediaUploadResult | null; error: MultimediaUploadError | null }> {
-  // Detect file type from MIME type
-  const tipoArchivo = detectFileType(file.type)
-  
-  if (!tipoArchivo) {
+  const fileValidation = validateMultimediaFile(file)
+  if (!fileValidation.valid) {
     return {
       data: null,
       error: {
-        message: `Invalid file type: ${file.type}. Only images and videos are allowed.`,
-        code: 'INVALID_FILE_TYPE'
+        message: fileValidation.message,
+        code: fileValidation.code,
       }
     }
   }
 
+  const tipoArchivo = detectFileType(file.type) as TipoArchivo
+
   // Build the file path: ${propertyId}/${timestamp}_${filename}
   const timestamp = Date.now()
-  const filePath = `${propertyId}/${timestamp}_${file.name}`
+  const filePath = `${propertyId}/${timestamp}_${sanitizeFileName(file.name)}`
 
   // Step 1: Upload file to Storage
   const { error: uploadError } = await supabase.storage
     .from(BUCKET_NAME)
-    .upload(filePath, file)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    })
 
   if (uploadError) {
     return {

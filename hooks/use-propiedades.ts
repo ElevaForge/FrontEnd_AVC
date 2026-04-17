@@ -47,7 +47,7 @@ export function usePropiedades(filters: PropiedadesQuery = {}) {
           const imagenPrincipalMap: Record<string, string> = {}
           if (!imgError && imagenes) {
             imagenes.forEach((img: ImagenPropiedad) => {
-              imagenPrincipalMap[img.propiedad_id] = img.url
+              imagenPrincipalMap[img.propiedad_id] = img.url_thumbnail || img.url
             })
           }
 
@@ -64,7 +64,7 @@ export function usePropiedades(filters: PropiedadesQuery = {}) {
               // Solo tomar la primera imagen de cada propiedad
               primerasImagenes.forEach((img: ImagenPropiedad) => {
                 if (!imagenPrincipalMap[img.propiedad_id]) {
-                  imagenPrincipalMap[img.propiedad_id] = img.url
+                  imagenPrincipalMap[img.propiedad_id] = img.url_thumbnail || img.url
                 }
               })
             }

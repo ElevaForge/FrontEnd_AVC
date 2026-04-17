@@ -305,7 +305,6 @@ export function PropertiesSection() {
         selectedIndex={selectedIndex}
         isOpen={isModalOpen}
         onClose={closeModal}
-        onNavigate={(newIndex: number) => setSelectedIndex(newIndex)}
       />
     </section>
   )

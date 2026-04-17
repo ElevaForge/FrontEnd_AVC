@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { type PropiedadCompleta, type CategoriaPropiedad, type EstadoPropiedad, type ImagenPropiedad } from "@/lib/types"
-import { supabase } from "@/lib/supabase"
+import { supabase, validateMultimediaFile } from "@/lib/supabase"
+import { optimizeImageForUpload } from "@/lib/media-optimizer"
 import { toast } from "sonner"
 import {
   Select,
@@ -163,34 +164,46 @@ export function PropertyFormModal({ isOpen, onClose, onSave, property }: Propert
     input.accept = 'image/*,video/*'
     input.multiple = true
 
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files
       if (!files || files.length === 0) return
 
       const newPendingMedia: PendingMediaFile[] = []
+      let optimizedImages = 0
 
-      Array.from(files).forEach(file => {
-        const isVideo = file.type.startsWith('video/')
-        const maxSize = isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024
+      for (const originalFile of Array.from(files)) {
+        let processedFile = originalFile
 
-        if (file.size > maxSize) {
-          toast.error(`${file.name}: ${isVideo ? 'Video no debe superar 50MB' : 'Imagen no debe superar 5MB'}`)
-          return
+        if (originalFile.type.startsWith('image/')) {
+          processedFile = await optimizeImageForUpload(originalFile)
+          if (processedFile !== originalFile) optimizedImages += 1
+        }
+
+        const isVideo = processedFile.type.startsWith('video/')
+
+        const validation = validateMultimediaFile(processedFile)
+        if (!validation.valid) {
+          toast.error(`${originalFile.name}: ${validation.message}`)
+          continue
         }
 
         const id = `pending-${Math.random().toString(36).substring(2)}-${Date.now()}`
-        const preview = URL.createObjectURL(file)
+        const preview = URL.createObjectURL(processedFile)
 
         newPendingMedia.push({
           id,
-          file,
+          file: processedFile,
           preview,
           type: isVideo ? 'video' : 'image'
         })
-      })
+      }
 
       if (newPendingMedia.length > 0) {
         setPendingMedia(prev => [...prev, ...newPendingMedia])
+
+        if (optimizedImages > 0) {
+          toast.success(`${optimizedImages} imagen(es) optimizadas antes de subir`)
+        }
         
         // Si no hay principal seleccionado, establecer la primera imagen como principal
         if (!principalMediaId && existingMedia.length === 0 && pendingMedia.length === 0) {

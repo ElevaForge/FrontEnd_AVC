@@ -16,7 +16,6 @@ interface PropertyModalProps {
   selectedIndex?: number | null
   isOpen: boolean
   onClose: () => void
-  onNavigate?: (newIndex: number) => void
 }
 
 const formatPrice = (price: number) => {
@@ -34,7 +33,7 @@ const estadoLabels: Record<string, string> = {
   Arrendada: "Arrendada",
 }
 
-export function PropertyModal({ properties, singleProperty, selectedIndex, isOpen, onClose, onNavigate }: PropertyModalProps) {
+export function PropertyModal({ properties, singleProperty, selectedIndex, isOpen, onClose }: PropertyModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [images, setImages] = useState<string[]>([])
   const [loadingImages, setLoadingImages] = useState(false)
@@ -54,7 +53,10 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
       prop = singleProperty
     }
 
-    if (prop?.id) loadImages(prop.id)
+    if (prop?.id) {
+      setCurrentImageIndex(0)
+      loadImages(prop.id)
+    }
   }, [isOpen, selectedIndex, properties, singleProperty])
 
   const loadImages = async (propertyId: string) => {
@@ -132,18 +134,6 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
     }
   }
 
-  const prevProperty = () => {
-    if (!properties || typeof selectedIndex !== 'number' || !onNavigate) return
-    const newIndex = (selectedIndex - 1 + properties.length) % properties.length
-    onNavigate(newIndex)
-  }
-
-  const nextProperty = () => {
-    if (!properties || typeof selectedIndex !== 'number' || !onNavigate) return
-    const newIndex = (selectedIndex + 1) % properties.length
-    onNavigate(newIndex)
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -191,21 +181,6 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
                 </button>
               </>
             )}
-
-            {/* Property navigation on desktop */}
-            <button
-              onClick={prevProperty}
-              className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 rounded-full text-white hover:bg-black/50 transition-colors"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-            <button
-              onClick={nextProperty}
-              className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 rounded-full text-white hover:bg-black/50 transition-colors"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-
             {/* Thumbnails */}
             {images.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
