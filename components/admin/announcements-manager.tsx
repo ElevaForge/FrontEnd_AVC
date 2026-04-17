@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import { Megaphone, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Megaphone, Plus, Pencil, Trash2, Upload, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useAnuncios } from '@/hooks/use-anuncios'
 import type { Anuncio, TipoAnuncio } from '@/lib/types'
+import { optimizeImageForUpload } from '@/lib/media-optimizer'
+import { supabase, uploadFileToStorage, validateMultimediaFile } from '@/lib/supabase'
 
 const defaultForm: Partial<Anuncio> = {
   titulo: '',
@@ -33,6 +35,7 @@ export function AnnouncementsManager() {
   const [query, setQuery] = useState('')
   const [form, setForm] = useState<Partial<Anuncio>>(defaultForm)
   const [galleryInput, setGalleryInput] = useState('')
+  const [pendingImages, setPendingImages] = useState<Array<{ id: string; file: File; preview: string }>>([])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -46,6 +49,8 @@ export function AnnouncementsManager() {
     setEditing(null)
     setForm(defaultForm)
     setGalleryInput('')
+    pendingImages.forEach((image) => URL.revokeObjectURL(image.preview))
+    setPendingImages([])
     setIsOpen(true)
   }
 
@@ -57,7 +62,47 @@ export function AnnouncementsManager() {
       fecha_fin: anuncio.fecha_fin ? anuncio.fecha_fin.slice(0, 10) : '',
     })
     setGalleryInput((anuncio.galeria_urls || []).join('\n'))
+    pendingImages.forEach((image) => URL.revokeObjectURL(image.preview))
+    setPendingImages([])
     setIsOpen(true)
+  }
+
+  const handleAddImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    const incoming: Array<{ id: string; file: File; preview: string }> = []
+
+    for (const originalFile of Array.from(files)) {
+      let processedFile = originalFile
+
+      if (originalFile.type.startsWith('image/')) {
+        processedFile = await optimizeImageForUpload(originalFile)
+      }
+
+      const validation = validateMultimediaFile(processedFile)
+      if (!validation.valid) {
+        continue
+      }
+
+      incoming.push({
+        id: `pending-${Math.random().toString(36).slice(2)}-${Date.now()}`,
+        file: processedFile,
+        preview: URL.createObjectURL(processedFile),
+      })
+    }
+
+    if (incoming.length > 0) {
+      setPendingImages((prev) => [...prev, ...incoming])
+    }
+  }
+
+  const removePendingImage = (id: string) => {
+    setPendingImages((prev) => {
+      const next = prev.filter((item) => item.id !== id)
+      const removed = prev.find((item) => item.id === id)
+      if (removed) URL.revokeObjectURL(removed.preview)
+      return next
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +113,21 @@ export function AnnouncementsManager() {
       .map((line) => line.trim())
       .filter(Boolean)
 
+    const uploadedFiles: string[] = []
+    const uploadedStoragePaths: string[] = []
+
+    for (const pending of pendingImages) {
+      const { data, error: uploadError } = await uploadFileToStorage(pending.file, 'anuncios')
+      if (uploadError || !data) {
+        if (uploadedStoragePaths.length > 0) {
+          await supabase.storage.from('propiedades-imagenes').remove(uploadedStoragePaths)
+        }
+        return
+      }
+      uploadedFiles.push(data.publicUrl)
+      uploadedStoragePaths.push(data.path)
+    }
+
     const payload: Partial<Anuncio> = {
       titulo: String(form.titulo || '').trim(),
       resumen: form.resumen ? String(form.resumen).trim() : null,
@@ -76,7 +136,7 @@ export function AnnouncementsManager() {
       prioridad: Number(form.prioridad || 0),
       activo: Boolean(form.activo),
       destacado: Boolean(form.destacado),
-      galeria_urls: parsedGallery,
+      galeria_urls: [...uploadedFiles, ...parsedGallery],
       imagen_url: form.imagen_url ? String(form.imagen_url).trim() : null,
       video_url: form.video_url ? String(form.video_url).trim() : null,
       cta_texto: form.cta_texto ? String(form.cta_texto).trim() : null,
@@ -94,6 +154,8 @@ export function AnnouncementsManager() {
       setEditing(null)
       setForm(defaultForm)
       setGalleryInput('')
+      pendingImages.forEach((image) => URL.revokeObjectURL(image.preview))
+      setPendingImages([])
     }
   }
 
@@ -270,6 +332,36 @@ export function AnnouncementsManager() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="upload_images">Subir imágenes directamente</Label>
+                  <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+                    <Input
+                      id="upload_images"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleAddImages(e.target.files)}
+                    />
+                    {pendingImages.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {pendingImages.map((image) => (
+                          <div key={image.id} className="relative rounded-lg overflow-hidden bg-muted">
+                            <img src={image.preview} alt="Previsualización" className="h-24 w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removePendingImage(image.id)}
+                              className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white"
+                              aria-label="Eliminar imagen"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="galeria_urls">Fotos del anuncio (una URL por línea)</Label>
                   <Textarea

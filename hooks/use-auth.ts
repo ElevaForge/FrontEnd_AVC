@@ -34,9 +34,16 @@ export function useAuth() {
   }, [])
 
   const login = async (email: string, password: string) => {
+    const safeEmail = email.trim()
+    const safePassword = password.trim()
+
+    if (!safeEmail || !safePassword) {
+      throw new Error('Debes completar el correo y la contraseña')
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: safeEmail,
+      password: safePassword,
     })
 
     if (error) throw error

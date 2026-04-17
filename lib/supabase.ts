@@ -77,6 +77,51 @@ export function validateMultimediaFile(
   return { valid: true }
 }
 
+function buildStoragePath(folder: string, fileName: string): string {
+  const timestamp = Date.now()
+  return `${folder}/${timestamp}_${sanitizeFileName(fileName)}`
+}
+
+export async function uploadFileToStorage(file: File, folder: string, bucketName: string = BUCKET_NAME): Promise<{
+  data: { publicUrl: string; path: string } | null
+  error: string | null
+}> {
+  const path = buildStoragePath(folder, file.name)
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucketName)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    })
+
+  if (uploadError) {
+    return {
+      data: null,
+      error: uploadError.message,
+    }
+  }
+
+  const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(path)
+
+  if (!urlData?.publicUrl) {
+    await supabase.storage.from(bucketName).remove([path])
+    return {
+      data: null,
+      error: 'No se pudo obtener la URL pública del archivo',
+    }
+  }
+
+  return {
+    data: {
+      publicUrl: urlData.publicUrl,
+      path,
+    },
+    error: null,
+  }
+}
+
 /**
  * Detects if a file is an image or video based on its MIME type.
  * @param mimeType - The MIME type of the file (e.g., "image/png", "video/mp4")
