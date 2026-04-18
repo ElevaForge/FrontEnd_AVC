@@ -128,6 +128,9 @@ export function AnnouncementsManager() {
       uploadedStoragePaths.push(data.path)
     }
 
+    const galleryUrls = [...uploadedFiles, ...parsedGallery]
+    const fallbackPrimaryImage = galleryUrls[0] || null
+
     const payload: Partial<Anuncio> = {
       titulo: String(form.titulo || '').trim(),
       resumen: form.resumen ? String(form.resumen).trim() : null,
@@ -136,8 +139,8 @@ export function AnnouncementsManager() {
       prioridad: Number(form.prioridad || 0),
       activo: Boolean(form.activo),
       destacado: Boolean(form.destacado),
-      galeria_urls: [...uploadedFiles, ...parsedGallery],
-      imagen_url: form.imagen_url ? String(form.imagen_url).trim() : null,
+      galeria_urls: galleryUrls,
+      imagen_url: form.imagen_url ? String(form.imagen_url).trim() : fallbackPrimaryImage,
       video_url: form.video_url ? String(form.video_url).trim() : null,
       cta_texto: form.cta_texto ? String(form.cta_texto).trim() : null,
       cta_url: form.cta_url ? String(form.cta_url).trim() : null,
