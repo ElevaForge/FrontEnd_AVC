@@ -193,4 +193,33 @@ using (
   and name like 'anuncios/%'
 );
 
+-- 5) Normalización de URLs históricas ya guardadas en anuncios.
+-- Reescribe rutas antiguas del tipo /storage/v1/object/... al formato público /storage/v1/object/public/....
+update public.anuncios
+set
+  imagen_url = case
+    when imagen_url like '%/storage/v1/object/%' and imagen_url not like '%/storage/v1/object/public/%'
+      then replace(imagen_url, '/storage/v1/object/', '/storage/v1/object/public/')
+    else imagen_url
+  end,
+  video_url = case
+    when video_url like '%/storage/v1/object/%' and video_url not like '%/storage/v1/object/public/%'
+      then replace(video_url, '/storage/v1/object/', '/storage/v1/object/public/')
+    else video_url
+  end,
+  galeria_urls = case
+    when galeria_urls is null then galeria_urls
+    else (
+      select coalesce(array_agg(
+        case
+          when item like '%/storage/v1/object/%' and item not like '%/storage/v1/object/public/%'
+            then replace(item, '/storage/v1/object/', '/storage/v1/object/public/')
+          else item
+        end
+        order by ord
+      ), '{}'::text[])
+      from unnest(galeria_urls) with ordinality as gallery(item, ord)
+    )
+  end;
+
 commit;

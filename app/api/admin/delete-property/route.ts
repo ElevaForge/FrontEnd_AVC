@@ -47,9 +47,14 @@ export async function POST(req: NextRequest) {
       .eq('id', id)
       .single()
 
-    if (propErr) {
+    if (propErr && propErr.code !== 'PGRST116') {
       console.error('Admin: error fetching property owner:', propErr)
       return NextResponse.json({ error: 'Error fetching property' }, { status: 500 })
+    }
+
+    // Idempotencia: si ya no existe la propiedad, tratamos el borrado como exitoso.
+    if (!prop) {
+      return NextResponse.json({ success: true, alreadyDeleted: true })
     }
 
     if (!prop || prop.owner_id !== requesterId) {
@@ -70,9 +75,9 @@ export async function POST(req: NextRequest) {
 
     // 2) Extraer rutas y eliminar archivos del Storage usando la Storage API
     if (imagenes && imagenes.length > 0) {
-      const paths = (imagenes as any[])
+      const paths = Array.from(new Set((imagenes as any[])
         .map(img => extractPathFromUrl(String(img.url || '')))
-        .filter(Boolean) as string[]
+        .filter(Boolean) as string[]))
 
       if (paths.length > 0) {
         try {

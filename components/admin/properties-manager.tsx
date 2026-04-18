@@ -25,6 +25,8 @@ export function PropertiesManager() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProperty, setEditingProperty] = useState<PropiedadCompleta | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [isSavingProperty, setIsSavingProperty] = useState(false)
+  const [deletingPropertyIds, setDeletingPropertyIds] = useState<string[]>([])
   // Categorías removidas del catálogo principal
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const { user } = useAuth()
@@ -51,10 +53,12 @@ export function PropertiesManager() {
   }
 
   const handleDeleteProperty = async (id: string) => {
+    if (deletingPropertyIds.includes(id)) return
     if (!confirm("¿Estás seguro de eliminar esta propiedad? Se eliminarán también todas sus imágenes.")) {
       return
     }
 
+    setDeletingPropertyIds((prev) => [...prev, id])
     try {
       // Delegar completamente al endpoint admin (service role) para evitar
       // errores de permisos con Storage/RLS al eliminar desde el cliente.
@@ -79,6 +83,8 @@ export function PropertiesManager() {
     } catch (error) {
       console.error('Error deleting property:', error)
       toast.error('Error al eliminar la propiedad')
+    } finally {
+      setDeletingPropertyIds((prev) => prev.filter((item) => item !== id))
     }
   }
 
@@ -99,6 +105,8 @@ export function PropertiesManager() {
     deletedMediaIds: string[] = [],
     principalMediaId: string | null = null
   ) => {
+    if (isSavingProperty) return
+    setIsSavingProperty(true)
     try {
       if (!user) {
         toast.error('Debes iniciar sesión para crear o editar propiedades')
@@ -257,6 +265,8 @@ export function PropertiesManager() {
     } catch (error) {
       console.error('Error saving property:', error)
       toast.error('Error al guardar la propiedad')
+    } finally {
+      setIsSavingProperty(false)
     }
   }
 
@@ -368,10 +378,11 @@ export function PropertiesManager() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteProperty(property.id)}
+                      disabled={deletingPropertyIds.includes(property.id)}
                       className="text-destructive hover:text-destructive text-xs md:text-sm h-8 md:h-9"
                     >
                       <Trash2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                      Eliminar
+                      {deletingPropertyIds.includes(property.id) ? 'Eliminando...' : 'Eliminar'}
                     </Button>
                   </div>
                 </div>

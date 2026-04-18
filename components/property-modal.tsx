@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { X, MapPin, Bed, Bath, Car, Maximize, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import Image from "next/image"
 import type { PropiedadCompleta, ImagenPropiedad } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { supabase } from "@/lib/supabase"
+import { normalizeSupabaseStorageUrl, supabase } from "@/lib/supabase"
 
 interface PropertyModalProps {
   // Compatibilidad: aceptar una lista de propiedades (`properties`) o una sola propiedad (`singleProperty`)
@@ -37,12 +36,16 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [images, setImages] = useState<string[]>([])
   const [loadingImages, setLoadingImages] = useState(false)
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
+  const imagesCacheRef = useRef<Record<string, string[]>>({})
+  const touchStartXRef = useRef<number | null>(null)
 
   // Cargar imágenes cuando se abre el modal o cambia la propiedad seleccionada
   useEffect(() => {
     if (!isOpen) {
       setImages([])
       setCurrentImageIndex(0)
+      setLoadedImages({})
       return
     }
 
@@ -55,18 +58,46 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
 
     if (prop?.id) {
       setCurrentImageIndex(0)
-      loadImages(prop.id)
+      setLoadedImages({})
+      void loadImages(prop.id)
     }
   }, [isOpen, selectedIndex, properties, singleProperty])
 
+  useEffect(() => {
+    if (images.length === 0) {
+      setLoadedImages({})
+      return
+    }
+
+    images.forEach((url) => {
+      const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.includes('video')
+      if (isVideo) {
+        setLoadedImages((prev) => ({ ...prev, [url]: true }))
+        return
+      }
+
+      const img = new window.Image()
+      img.onload = () => setLoadedImages((prev) => ({ ...prev, [url]: true }))
+      img.onerror = () => setLoadedImages((prev) => ({ ...prev, [url]: true }))
+      img.src = url
+    })
+  }, [images])
+
   const loadImages = async (propertyId: string) => {
+    const cached = imagesCacheRef.current[propertyId]
+    if (cached && cached.length > 0) {
+      setImages(cached)
+      return
+    }
+
     setLoadingImages(true)
     try {
       // Intentar usar imágenes incluidas en la propia propiedad
       const propObj = (properties || []).find(p => p.id === propertyId) || (singleProperty && singleProperty.id === propertyId ? singleProperty : undefined)
       if (propObj?.imagenes && propObj.imagenes.length > 0) {
-        const urls = propObj.imagenes.map(img => img.url).filter(Boolean)
+        const urls = propObj.imagenes.map(img => normalizeSupabaseStorageUrl(img.url)).filter(Boolean)
         if (urls.length > 0) {
+          imagesCacheRef.current[propertyId] = urls
           setImages(urls)
           setLoadingImages(false)
           return
@@ -76,7 +107,7 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
       // Si no hay imágenes en la propiedad, cargar desde BD
       const { data, error } = await supabase
         .from('imagenes_propiedad')
-        .select('*')
+        .select('url, orden')
         .eq('propiedad_id', propertyId)
         .order('orden', { ascending: true })
         .limit(20)
@@ -85,22 +116,33 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
         console.error('Error loading images:', error)
         // Fallback a imagen principal si existe
         if (propObj?.imagen_principal) {
-          setImages([propObj.imagen_principal])
+          const fallback = [normalizeSupabaseStorageUrl(propObj.imagen_principal)]
+          imagesCacheRef.current[propertyId] = fallback
+          setImages(fallback)
         }
       } else if (data && data.length > 0) {
-        const urls = (data as ImagenPropiedad[]).map((img) => img.url).filter(Boolean)
-        setImages(urls.length > 0 ? urls : (propObj?.imagen_principal ? [propObj.imagen_principal] : []))
+        const urls = (data as Pick<ImagenPropiedad, 'url'>[])
+          .map((img) => normalizeSupabaseStorageUrl(img.url))
+          .filter(Boolean)
+        const fallback = propObj?.imagen_principal ? [normalizeSupabaseStorageUrl(propObj.imagen_principal)] : []
+        const resolved = urls.length > 0 ? urls : fallback
+        imagesCacheRef.current[propertyId] = resolved
+        setImages(resolved)
       } else {
         // Sin imágenes, usar imagen principal si existe
         if (propObj?.imagen_principal) {
-          setImages([propObj.imagen_principal])
+          const fallback = [normalizeSupabaseStorageUrl(propObj.imagen_principal)]
+          imagesCacheRef.current[propertyId] = fallback
+          setImages(fallback)
         }
       }
     } catch (err) {
       console.error('Error loading images:', err)
       const propObj = (properties || []).find(p => p.id === propertyId) || (singleProperty && singleProperty.id === propertyId ? singleProperty : undefined)
       if (propObj?.imagen_principal) {
-        setImages([propObj.imagen_principal])
+        const fallback = [normalizeSupabaseStorageUrl(propObj.imagen_principal)]
+        imagesCacheRef.current[propertyId] = fallback
+        setImages(fallback)
       }
     } finally {
       setLoadingImages(false)
@@ -117,6 +159,9 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
 
   if (!isOpen || !currentProperty) return null
   const property = currentProperty
+  const currentUrl = images[currentImageIndex] || "/placeholder.svg"
+  const currentIsVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(currentUrl) || currentUrl.includes('video')
+  const currentLoaded = currentIsVideo || Boolean(loadedImages[currentUrl])
 
   const whatsappMessage = encodeURIComponent(
     `Hola, estoy interesado en la propiedad "${property.nombre}" ubicada en ${property.direccion}. Precio: ${formatPrice(property.precio)}. ¿Podrían darme más información?`,
@@ -131,6 +176,23 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
   const prevImage = () => {
     if (images.length > 1) {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+    }
+  }
+
+  const onTouchStart: React.TouchEventHandler<HTMLDivElement> = (event) => {
+    touchStartXRef.current = event.touches[0]?.clientX ?? null
+  }
+
+  const onTouchEnd: React.TouchEventHandler<HTMLDivElement> = (event) => {
+    if (touchStartXRef.current === null || images.length <= 1) return
+    const endX = event.changedTouches[0]?.clientX ?? touchStartXRef.current
+    const deltaX = endX - touchStartXRef.current
+    touchStartXRef.current = null
+    if (Math.abs(deltaX) < 40) return
+    if (deltaX < 0) {
+      nextImage()
+    } else {
+      prevImage()
     }
   }
 
@@ -151,18 +213,34 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
 
         <div className="overflow-y-auto max-h-[90vh]">
           {/* Image Gallery - usando contenedor flexible para mostrar imagen completa */}
-          <div className="relative w-full min-h-[300px] max-h-[60vh] bg-black flex items-center justify-center">
-            {(() => {
-              const url = images[currentImageIndex] || "/placeholder.svg"
-              const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.includes('video')
-              return isVideo ? (
-                <video className="max-w-full max-h-[60vh] object-contain" src={url} controls playsInline />
-              ) : (
-                <div className="relative w-full h-[60vh] flex items-center justify-center">
-                  <Image src={url} alt={property.nombre} fill style={{ objectFit: 'contain' }} />
-                </div>
-              )
-            })()}
+          <div
+            className="relative w-full min-h-[300px] max-h-[60vh] bg-black flex items-center justify-center"
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+            {currentIsVideo ? (
+              <video className="max-w-full max-h-[60vh] object-contain" src={currentUrl} controls playsInline preload="metadata" />
+            ) : (
+              <img
+                src={currentUrl}
+                alt={property.nombre}
+                className={`max-w-full max-h-[60vh] object-contain transition-opacity duration-150 ${currentLoaded ? 'opacity-100' : 'opacity-0'}`}
+                loading="eager"
+                decoding="async"
+              />
+            )}
+
+            {loadingImages && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+              </div>
+            )}
+
+            {!loadingImages && !currentLoaded && !currentIsVideo && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+              </div>
+            )}
 
             {/* Navigation Arrows */}
             {images.length > 1 && (
@@ -181,7 +259,7 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
                 </button>
               </>
             )}
-            {/* Thumbnails */}
+            {/* Indicators */}
             {images.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                 {images.map((_, index) => (
@@ -210,6 +288,36 @@ export function PropertyModal({ properties, singleProperty, selectedIndex, isOpe
               {estadoLabels[property.estado]}
             </Badge>
           </div>
+
+          {images.length > 1 && (
+            <div className="px-4 py-3 bg-black/90 border-t border-white/10 overflow-x-auto">
+              <div className="flex gap-2 min-w-max">
+                {images.map((url, index) => {
+                  const isVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.includes('video')
+                  return (
+                    <button
+                      key={`${url}-${index}`}
+                      type="button"
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={cn(
+                        "relative h-14 w-20 rounded-md overflow-hidden border-2 transition-colors",
+                        index === currentImageIndex ? "border-secondary" : "border-transparent",
+                      )}
+                      aria-label={`Seleccionar imagen ${index + 1}`}
+                    >
+                      {isVideo ? (
+                        <div className="h-full w-full bg-black/60 flex items-center justify-center text-white">
+                          <span className="text-xs font-medium">Video</span>
+                        </div>
+                      ) : (
+                        <img src={url} alt={`Miniatura ${index + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           <div className="p-6 md:p-8">

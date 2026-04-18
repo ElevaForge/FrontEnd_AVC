@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from 'react'
-import { Megaphone, Plus, Pencil, Trash2, Upload, X } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { Megaphone, Plus, Pencil, Trash2, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,18 +12,16 @@ import { useAnuncios } from '@/hooks/use-anuncios'
 import type { Anuncio, TipoAnuncio } from '@/lib/types'
 import { optimizeImageForUpload } from '@/lib/media-optimizer'
 import { supabase, uploadFileToStorage, validateMultimediaFile } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 const defaultForm: Partial<Anuncio> = {
   titulo: '',
-  resumen: '',
   contenido: '',
   tipo: 'General',
-  prioridad: 0,
   activo: true,
   destacado: false,
   galeria_urls: [],
   cta_texto: '',
-  cta_url: '',
   fecha_inicio: '',
   fecha_fin: '',
 }
@@ -36,6 +34,10 @@ export function AnnouncementsManager() {
   const [form, setForm] = useState<Partial<Anuncio>>(defaultForm)
   const [galleryInput, setGalleryInput] = useState('')
   const [pendingImages, setPendingImages] = useState<Array<{ id: string; file: File; preview: string }>>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadStats, setUploadStats] = useState({ done: 0, total: 0 })
+  const [deletingIds, setDeletingIds] = useState<string[]>([])
+  const submitLockRef = useRef(false)
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -81,6 +83,7 @@ export function AnnouncementsManager() {
 
       const validation = validateMultimediaFile(processedFile)
       if (!validation.valid) {
+        toast.error(validation.message)
         continue
       }
 
@@ -107,59 +110,96 @@ export function AnnouncementsManager() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitLockRef.current || isSubmitting) return
+    submitLockRef.current = true
+    setIsSubmitting(true)
 
-    const parsedGallery = galleryInput
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
+    try {
+      const parsedGallery = galleryInput
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
 
-    const uploadedFiles: string[] = []
-    const uploadedStoragePaths: string[] = []
+      setUploadStats({ done: 0, total: pendingImages.length })
 
-    for (const pending of pendingImages) {
-      const { data, error: uploadError } = await uploadFileToStorage(pending.file, 'anuncios')
-      if (uploadError || !data) {
-        if (uploadedStoragePaths.length > 0) {
-          await supabase.storage.from('propiedades-imagenes').remove(uploadedStoragePaths)
+      const uploadResults = await Promise.all(
+        pendingImages.map(async (pending) => {
+          const result = await uploadFileToStorage(pending.file, 'anuncios')
+          setUploadStats((prev) => ({ ...prev, done: Math.min(prev.done + 1, prev.total) }))
+          return result
+        }),
+      )
+
+      const successfulUploads = uploadResults
+        .filter((result): result is { data: { publicUrl: string; path: string }; error: null } => Boolean(result.data && !result.error))
+        .map((result) => result.data)
+
+      const failedUpload = uploadResults.find((result) => result.error || !result.data)
+      if (failedUpload) {
+        const rollbackPaths = successfulUploads.map((item) => item.path)
+        if (rollbackPaths.length > 0) {
+          await supabase.storage.from('propiedades-imagenes').remove(rollbackPaths)
         }
+        toast.error(failedUpload.error || 'No se pudo subir una o más imágenes del anuncio')
         return
       }
-      console.log('📸 URL subida para anuncio:', data.publicUrl, 'Ruta:', data.path)
-      uploadedFiles.push(data.publicUrl)
-      uploadedStoragePaths.push(data.path)
+
+      const uploadedFiles = successfulUploads.map((item) => item.publicUrl)
+
+      const galleryUrls = [...uploadedFiles, ...parsedGallery]
+      const fallbackPrimaryImage = galleryUrls[0] || null
+
+      const payload: Partial<Anuncio> = {
+        titulo: String(form.titulo || '').trim(),
+        contenido: String(form.contenido || '').trim(),
+        tipo: (form.tipo as TipoAnuncio) || 'General',
+        prioridad: Number(form.prioridad || 0),
+        activo: Boolean(form.activo),
+        destacado: Boolean(form.destacado),
+        galeria_urls: galleryUrls,
+        imagen_url: form.imagen_url ? String(form.imagen_url).trim() : fallbackPrimaryImage,
+        video_url: form.video_url ? String(form.video_url).trim() : null,
+        cta_texto: form.cta_texto ? String(form.cta_texto).trim() : null,
+        cta_url: null,
+        resumen: null,
+        fecha_inicio: form.fecha_inicio ? new Date(String(form.fecha_inicio)).toISOString() : null,
+        fecha_fin: form.fecha_fin ? new Date(String(form.fecha_fin)).toISOString() : null,
+      }
+
+      if (!payload.titulo || payload.titulo.length < 5) {
+        toast.error('El título debe tener al menos 5 caracteres')
+        return
+      }
+      if (!payload.contenido || payload.contenido.length < 10) {
+        toast.error('El contenido debe tener al menos 10 caracteres')
+        return
+      }
+
+      const ok = editing ? await updateAnuncio(editing.id, payload) : await createAnuncio(payload)
+      if (ok) {
+        setIsOpen(false)
+        setEditing(null)
+        setForm(defaultForm)
+        setGalleryInput('')
+        pendingImages.forEach((image) => URL.revokeObjectURL(image.preview))
+        setPendingImages([])
+      }
+    } finally {
+      submitLockRef.current = false
+      setIsSubmitting(false)
+      setUploadStats({ done: 0, total: 0 })
     }
+  }
 
-    const galleryUrls = [...uploadedFiles, ...parsedGallery]
-    const fallbackPrimaryImage = galleryUrls[0] || null
+  const handleDeleteAnuncio = async (id: string) => {
+    if (deletingIds.includes(id)) return
+    if (!confirm('¿Estás seguro de eliminar este anuncio? También se eliminarán sus archivos multimedia.')) return
 
-    const payload: Partial<Anuncio> = {
-      titulo: String(form.titulo || '').trim(),
-      resumen: form.resumen ? String(form.resumen).trim() : null,
-      contenido: String(form.contenido || '').trim(),
-      tipo: (form.tipo as TipoAnuncio) || 'General',
-      prioridad: Number(form.prioridad || 0),
-      activo: Boolean(form.activo),
-      destacado: Boolean(form.destacado),
-      galeria_urls: galleryUrls,
-      imagen_url: form.imagen_url ? String(form.imagen_url).trim() : fallbackPrimaryImage,
-      video_url: form.video_url ? String(form.video_url).trim() : null,
-      cta_texto: form.cta_texto ? String(form.cta_texto).trim() : null,
-      cta_url: form.cta_url ? String(form.cta_url).trim() : null,
-      fecha_inicio: form.fecha_inicio ? new Date(String(form.fecha_inicio)).toISOString() : null,
-      fecha_fin: form.fecha_fin ? new Date(String(form.fecha_fin)).toISOString() : null,
-    }
-
-    if (!payload.titulo || payload.titulo.length < 5) return
-    if (!payload.contenido || payload.contenido.length < 10) return
-
-    const ok = editing ? await updateAnuncio(editing.id, payload) : await createAnuncio(payload)
-    if (ok) {
-      setIsOpen(false)
-      setEditing(null)
-      setForm(defaultForm)
-      setGalleryInput('')
-      pendingImages.forEach((image) => URL.revokeObjectURL(image.preview))
-      setPendingImages([])
+    setDeletingIds((prev) => [...prev, id])
+    try {
+      await deleteAnuncio(id)
+    } finally {
+      setDeletingIds((prev) => prev.filter((item) => item !== id))
     }
   }
 
@@ -210,7 +250,6 @@ export function AnnouncementsManager() {
                     <Badge variant={a.activo ? 'default' : 'secondary'}>{a.activo ? 'Activo' : 'Inactivo'}</Badge>
                   </div>
                   <h3 className="text-lg font-semibold line-clamp-1">{a.titulo}</h3>
-                  {a.resumen && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.resumen}</p>}
                 </div>
 
                 <div className="flex gap-2 shrink-0">
@@ -222,10 +261,11 @@ export function AnnouncementsManager() {
                     variant="outline"
                     size="sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => deleteAnuncio(a.id)}
+                    onClick={() => handleDeleteAnuncio(a.id)}
+                    disabled={deletingIds.includes(a.id)}
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
-                    Eliminar
+                    {deletingIds.includes(a.id) ? 'Eliminando...' : 'Eliminar'}
                   </Button>
                 </div>
               </div>
@@ -252,15 +292,6 @@ export function AnnouncementsManager() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="resumen">Resumen</Label>
-                <Input
-                  id="resumen"
-                  value={String(form.resumen || '')}
-                  onChange={(e) => setForm((prev) => ({ ...prev, resumen: e.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="contenido">Contenido</Label>
                 <Textarea
                   id="contenido"
@@ -272,7 +303,7 @@ export function AnnouncementsManager() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="tipo">Tipo</Label>
                   <select
@@ -286,18 +317,6 @@ export function AnnouncementsManager() {
                     <option value="Urgente">Urgente</option>
                     <option value="Evento">Evento</option>
                   </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="prioridad">Prioridad</Label>
-                  <Input
-                    id="prioridad"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={String(form.prioridad ?? 0)}
-                    onChange={(e) => setForm((prev) => ({ ...prev, prioridad: Number(e.target.value || 0) }))}
-                  />
                 </div>
 
                 <div className="space-y-2">
@@ -344,8 +363,14 @@ export function AnnouncementsManager() {
                       type="file"
                       accept="image/*"
                       multiple
+                      disabled={isSubmitting}
                       onChange={(e) => handleAddImages(e.target.files)}
                     />
+                    {isSubmitting && uploadStats.total > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Subiendo imágenes... {uploadStats.done}/{uploadStats.total}
+                      </p>
+                    )}
                     {pendingImages.length > 0 && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {pendingImages.map((image) => (
@@ -354,6 +379,7 @@ export function AnnouncementsManager() {
                             <button
                               type="button"
                               onClick={() => removePendingImage(image.id)}
+                              disabled={isSubmitting}
                               className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white"
                               aria-label="Eliminar imagen"
                             >
@@ -386,15 +412,6 @@ export function AnnouncementsManager() {
                     placeholder="Ver más"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cta_url">URL botón</Label>
-                  <Input
-                    id="cta_url"
-                    value={String(form.cta_url || '')}
-                    onChange={(e) => setForm((prev) => ({ ...prev, cta_url: e.target.value }))}
-                    placeholder="https://..."
-                  />
-                </div>
               </div>
 
               <div className="flex items-center justify-between gap-3 pt-2">
@@ -408,11 +425,11 @@ export function AnnouncementsManager() {
                 </label>
 
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
                     Cancelar
                   </Button>
-                  <Button type="submit" className="bg-secondary hover:bg-secondary/90 text-white">
-                    {editing ? 'Guardar cambios' : 'Crear anuncio'}
+                  <Button type="submit" className="bg-secondary hover:bg-secondary/90 text-white" disabled={isSubmitting}>
+                    {isSubmitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear anuncio'}
                   </Button>
                 </div>
               </div>
