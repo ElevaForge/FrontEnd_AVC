@@ -108,6 +108,49 @@ export function AnnouncementsManager() {
     })
   }
 
+  // Upload with client-side retry first, then server fallback
+  const uploadWithFallback = async (file: File): Promise<{ data: { publicUrl: string; path: string } | null; error: string | null }> => {
+    // Try client-side first
+    const clientResult = await uploadFileToStorage(file, 'anuncios')
+    if (!clientResult.error) {
+      return clientResult
+    }
+
+    console.warn('[Upload Fallback] Client-side failed, trying server endpoint:', clientResult.error)
+    toast.loading('Reintentando subida desde servidor...')
+
+    // Try server endpoint as fallback
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('fileName', file.name)
+
+      const response = await fetch('/api/admin/upload-to-anuncios', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = (await response.json()) as { publicUrl?: string; path?: string; error?: string }
+
+      if (!response.ok || data.error) {
+        return {
+          data: null,
+          error: data.error || `Server error (${response.status})`,
+        }
+      }
+
+      return {
+        data: { publicUrl: data.publicUrl || '', path: data.path || '' },
+        error: null,
+      }
+    } catch (err) {
+      return {
+        data: null,
+        error: `Fallback failed: ${err instanceof Error ? err.message : String(err)}`,
+      }
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitLockRef.current || isSubmitting) return
@@ -129,7 +172,7 @@ export function AnnouncementsManager() {
         const batch = pendingImages.slice(i, i + batchSize)
         const batchResults = await Promise.all(
           batch.map(async (pending) => {
-            const result = await uploadFileToStorage(pending.file, 'anuncios')
+            const result = await uploadWithFallback(pending.file)
             setUploadStats((prev) => ({ ...prev, done: Math.min(prev.done + 1, prev.total) }))
             return result
           }),

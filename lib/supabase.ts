@@ -92,14 +92,22 @@ function isRetryableStorageError(error: unknown): boolean {
   const statusCode = Number((error as any)?.statusCode || (error as any)?.status || 0)
   const message = String((error as any)?.message || '').toLowerCase()
 
+  // Log error for debugging
+  console.warn('[Storage Retry Debug]', { statusCode, message })
+
   if (statusCode >= 500) return true
   if (statusCode === 0 && message.length > 0) return true
+  if (statusCode === 408) return true // Request Timeout
+  if (statusCode === 429) return true // Rate limiting
 
   return (
     message.includes('502')
     || message.includes('bad gateway')
     || message.includes('timeout')
     || message.includes('network')
+    || message.includes('econnreset')
+    || message.includes('econnrefused')
+    || message.includes('net::err')
   )
 }
 
@@ -114,8 +122,9 @@ async function uploadToStorageWithRetry(
   ]
 
   let lastError: { message: string } | null = null
+  const maxRounds = 5
 
-  for (let round = 0; round < 3; round++) {
+  for (let round = 0; round < maxRounds; round++) {
     for (const attempt of attempts) {
       const options: {
         cacheControl: string
@@ -130,27 +139,44 @@ async function uploadToStorageWithRetry(
         options.contentType = file.type
       }
 
-      const { error } = await supabase.storage
-        .from(bucketName)
-        .upload(path, file, options)
+      try {
+        console.log(`[Upload Retry] Round ${round + 1}/${maxRounds}, contentType=${attempt.includeContentType}`)
+        
+        const { error } = await supabase.storage
+          .from(bucketName)
+          .upload(path, file, options)
 
-      if (!error) {
-        return { error: null }
-      }
+        if (!error) {
+          console.log('[Upload Retry] Success!')
+          return { error: null }
+        }
 
-      lastError = { message: error.message }
+        lastError = { message: error.message }
 
-      if (!isRetryableStorageError(error)) {
-        return { error: lastError }
+        if (!isRetryableStorageError(error)) {
+          console.log('[Upload Retry] Non-retryable error:', error.message)
+          return { error: lastError }
+        }
+
+        console.log(`[Upload Retry] Retryable error (round ${round + 1}): ${error.message}`)
+      } catch (fetchError) {
+        console.error('[Upload Retry] Fetch error:', fetchError)
+        lastError = { message: String(fetchError).substring(0, 200) }
+        if (!isRetryableStorageError(fetchError)) {
+          return { error: lastError }
+        }
       }
     }
 
-    if (round < 2) {
-      await wait(350 * (round + 1))
+    if (round < maxRounds - 1) {
+      const waitMs = 500 * Math.pow(1.5, round)
+      console.log(`[Upload Retry] Waiting ${waitMs}ms before round ${round + 2}`)
+      await wait(waitMs)
     }
   }
 
-  return { error: lastError || { message: 'Error desconocido subiendo archivo' } }
+  console.error('[Upload Retry] Failed after all rounds:', lastError)
+  return { error: lastError || { message: 'Error desconocido subiendo archivo tras múltiples intentos' } }
 }
 
 export function normalizeSupabaseStorageUrl(value: string | null | undefined, bucketName: string = BUCKET_NAME): string {

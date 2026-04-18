@@ -99,6 +99,72 @@ export function PropertiesManager() {
     }
   }
 
+  // Upload with client-side retry first, then server fallback
+  const uploadMultimediaWithFallback = async (file: File, propertyId: string, esPrincipal: boolean) => {
+    // Try client-side first
+    const clientResult = await uploadMultimedia(file, propertyId, esPrincipal)
+    if (!clientResult.error) {
+      return clientResult
+    }
+
+    console.warn('[Multimedia Fallback] Client-side failed, trying server endpoint:', clientResult.error?.message)
+    toast.loading('Reintentando subida desde servidor...')
+
+    // Try server endpoint as fallback - only uploads the file, DB insert will be handled separately
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('fileName', file.name)
+
+      const response = await fetch('/api/admin/upload-to-propiedades', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = (await response.json()) as { publicUrl?: string; path?: string; error?: string }
+
+      if (!response.ok || data.error) {
+        return {
+          data: null,
+          error: { message: data.error || `Server error (${response.status})`, code: 'SERVER_UPLOAD_FAILED' },
+        }
+      }
+
+      // Now insert the record into the database with the server-provided URL
+      const { data: insertData, error: insertError } = await supabase
+        .from('imagenes_propiedad')
+        .insert({
+          propiedad_id: propertyId,
+          url: data.publicUrl || '',
+          tipo_archivo: file.type.includes('video') ? 'video' : 'imagen',
+          es_principal: esPrincipal
+        })
+        .select('id, propiedad_id, url, tipo_archivo, es_principal')
+        .single()
+
+      if (insertError) {
+        // Rollback: delete the uploaded file
+        if (data.path) {
+          await supabase.storage.from('propiedades-imagenes').remove([data.path])
+        }
+        return {
+          data: null,
+          error: { message: `DB insert failed: ${insertError.message}`, code: 'INSERT_FAILED' },
+        }
+      }
+
+      return {
+        data: insertData,
+        error: null,
+      }
+    } catch (err) {
+      return {
+        data: null,
+        error: { message: `Fallback failed: ${err instanceof Error ? err.message : String(err)}`, code: 'FALLBACK_FAILED' },
+      }
+    }
+  }
+
   const handleSaveProperty = async (
     property: Partial<PropiedadCompleta>,
     newMediaFiles: PendingMediaFile[] = [],
@@ -236,7 +302,7 @@ export function PropertiesManager() {
           const uploadPromises = newMediaFiles.map(async (media, i) => {
             try {
               const esPrincipal = principalMediaId === media.id
-              const { data: uploadResult, error: uploadErr } = await uploadMultimedia(media.file as any, propertyId, esPrincipal)
+              const { data: uploadResult, error: uploadErr } = await uploadMultimediaWithFallback(media.file as any, propertyId, esPrincipal)
               if (uploadErr || !uploadResult) {
                 console.error('UploadMultimedia error:', uploadErr)
                 return null
