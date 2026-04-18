@@ -120,6 +120,10 @@ export function normalizeSupabaseStorageUrl(value: string | null | undefined, bu
     return `${supabaseUrl}${SUPABASE_STORAGE_OBJECT_SEGMENT}public/${rawValue}`
   }
 
+  if (rawValue.startsWith(SUPABASE_STORAGE_OBJECT_SEGMENT)) {
+    return `${supabaseUrl}${rawValue.replace(SUPABASE_STORAGE_OBJECT_SEGMENT, `${SUPABASE_STORAGE_OBJECT_SEGMENT}public/`)}`
+  }
+
   if (rawValue.startsWith('/')) {
     return `${supabaseUrl}${rawValue}`
   }

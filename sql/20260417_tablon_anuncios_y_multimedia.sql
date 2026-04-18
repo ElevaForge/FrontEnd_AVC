@@ -156,17 +156,6 @@ update storage.buckets
 set public = true
 where id = 'propiedades-imagenes';
 
--- Lectura pública de archivos en carpeta anuncios/.
-drop policy if exists storage_anuncios_public_read on storage.objects;
-create policy storage_anuncios_public_read
-on storage.objects
-for select
-to anon, authenticated
-using (
-  bucket_id = 'propiedades-imagenes'
-  and name like 'anuncios/%'
-);
-
 -- Gestión de anuncios para usuarios autenticados (insert).
 drop policy if exists storage_anuncios_auth_insert on storage.objects;
 create policy storage_anuncios_auth_insert

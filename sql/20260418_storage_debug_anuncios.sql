@@ -14,22 +14,34 @@ drop policy if exists storage_anuncios_auth_insert on storage.objects;
 drop policy if exists storage_anuncios_auth_update on storage.objects;
 drop policy if exists storage_anuncios_auth_delete on storage.objects;
 
--- Política simple: permitir lectura pública de CUALQUIER archivo en anuncios/*
--- (sin restricciones adicionales de RLS).
-create policy anuncios_public_read
-on storage.objects
-for select
-using (
-  bucket_id = 'propiedades-imagenes'
-  and (name ilike 'anuncios/%')
-);
-
 -- Política para usuarios autenticados: permitir subir/editar/borrar en anuncios/*
-create policy anuncios_auth_write
+create policy storage_anuncios_auth_insert
 on storage.objects
 for insert
 to authenticated
 with check (
+  bucket_id = 'propiedades-imagenes'
+  and (name ilike 'anuncios/%')
+);
+
+create policy storage_anuncios_auth_update
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'propiedades-imagenes'
+  and (name ilike 'anuncios/%')
+)
+with check (
+  bucket_id = 'propiedades-imagenes'
+  and (name ilike 'anuncios/%')
+);
+
+create policy storage_anuncios_auth_delete
+on storage.objects
+for delete
+to authenticated
+using (
   bucket_id = 'propiedades-imagenes'
   and (name ilike 'anuncios/%')
 );
