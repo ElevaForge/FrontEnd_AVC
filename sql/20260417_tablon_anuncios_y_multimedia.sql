@@ -164,10 +164,10 @@ for select
 to anon, authenticated
 using (
   bucket_id = 'propiedades-imagenes'
-  and (storage.foldername(name))[1] = 'anuncios'
+  and name like 'anuncios/%'
 );
 
--- Gestión de anuncios para usuarios autenticados.
+-- Gestión de anuncios para usuarios autenticados (insert).
 drop policy if exists storage_anuncios_auth_insert on storage.objects;
 create policy storage_anuncios_auth_insert
 on storage.objects
@@ -175,9 +175,10 @@ for insert
 to authenticated
 with check (
   bucket_id = 'propiedades-imagenes'
-  and (storage.foldername(name))[1] = 'anuncios'
+  and name like 'anuncios/%'
 );
 
+-- Gestión de anuncios para usuarios autenticados (update).
 drop policy if exists storage_anuncios_auth_update on storage.objects;
 create policy storage_anuncios_auth_update
 on storage.objects
@@ -185,13 +186,14 @@ for update
 to authenticated
 using (
   bucket_id = 'propiedades-imagenes'
-  and (storage.foldername(name))[1] = 'anuncios'
+  and name like 'anuncios/%'
 )
 with check (
   bucket_id = 'propiedades-imagenes'
-  and (storage.foldername(name))[1] = 'anuncios'
+  and name like 'anuncios/%'
 );
 
+-- Gestión de anuncios para usuarios autenticados (delete).
 drop policy if exists storage_anuncios_auth_delete on storage.objects;
 create policy storage_anuncios_auth_delete
 on storage.objects
@@ -199,7 +201,7 @@ for delete
 to authenticated
 using (
   bucket_id = 'propiedades-imagenes'
-  and (storage.foldername(name))[1] = 'anuncios'
+  and name like 'anuncios/%'
 );
 
 commit;

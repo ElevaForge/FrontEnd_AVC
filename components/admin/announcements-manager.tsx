@@ -124,6 +124,7 @@ export function AnnouncementsManager() {
         }
         return
       }
+      console.log('📸 URL subida para anuncio:', data.publicUrl, 'Ruta:', data.path)
       uploadedFiles.push(data.publicUrl)
       uploadedStoragePaths.push(data.path)
     }

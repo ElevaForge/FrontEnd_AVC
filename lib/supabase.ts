@@ -3,6 +3,7 @@ import type { TipoArchivo, MultimediaUploadResult, MultimediaUploadError } from 
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const SUPABASE_STORAGE_OBJECT_SEGMENT = '/storage/v1/object/'
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('⚠️ Faltan variables de entorno: NEXT_PUBLIC_SUPABASE_URL y/o NEXT_PUBLIC_SUPABASE_ANON_KEY')
@@ -80,6 +81,50 @@ export function validateMultimediaFile(
 function buildStoragePath(folder: string, fileName: string): string {
   const timestamp = Date.now()
   return `${folder}/${timestamp}_${sanitizeFileName(fileName)}`
+}
+
+export function normalizeSupabaseStorageUrl(value: string | null | undefined, bucketName: string = BUCKET_NAME): string {
+  const rawValue = String(value || '').trim()
+
+  if (!rawValue) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(rawValue)) {
+    try {
+      const parsedUrl = new URL(rawValue)
+
+      if (parsedUrl.pathname.includes(`${SUPABASE_STORAGE_OBJECT_SEGMENT}public/`)) {
+        return rawValue
+      }
+
+      if (parsedUrl.pathname.includes(SUPABASE_STORAGE_OBJECT_SEGMENT)) {
+        parsedUrl.pathname = parsedUrl.pathname.replace(
+          SUPABASE_STORAGE_OBJECT_SEGMENT,
+          `${SUPABASE_STORAGE_OBJECT_SEGMENT}public/`,
+        )
+        return parsedUrl.toString()
+      }
+
+      return rawValue
+    } catch {
+      return rawValue
+    }
+  }
+
+  if (rawValue.startsWith(SUPABASE_STORAGE_OBJECT_SEGMENT)) {
+    return `${supabaseUrl}${rawValue.replace(SUPABASE_STORAGE_OBJECT_SEGMENT, `${SUPABASE_STORAGE_OBJECT_SEGMENT}public/`)}`
+  }
+
+  if (rawValue.startsWith(`${bucketName}/`)) {
+    return `${supabaseUrl}${SUPABASE_STORAGE_OBJECT_SEGMENT}public/${rawValue}`
+  }
+
+  if (rawValue.startsWith('/')) {
+    return `${supabaseUrl}${rawValue}`
+  }
+
+  return `${supabaseUrl}${SUPABASE_STORAGE_OBJECT_SEGMENT}public/${bucketName}/${rawValue}`
 }
 
 export async function uploadFileToStorage(file: File, folder: string, bucketName: string = BUCKET_NAME): Promise<{

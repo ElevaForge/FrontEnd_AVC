@@ -5,6 +5,7 @@ import { X, ChevronLeft, ChevronRight, CalendarDays, Megaphone, ExternalLink } f
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Anuncio } from "@/lib/types"
+import { normalizeSupabaseStorageUrl } from "@/lib/supabase"
 
 interface AnnouncementModalProps {
   anuncio: Anuncio | null
@@ -19,7 +20,7 @@ function isVideoUrl(url: string): boolean {
 function getAnuncioMedia(anuncio: Anuncio): string[] {
   const fromGallery = Array.isArray(anuncio.galeria_urls) ? anuncio.galeria_urls : []
   const merged = [...fromGallery, anuncio.imagen_url || '', anuncio.video_url || '']
-    .map((item) => String(item || '').trim())
+    .map((item) => normalizeSupabaseStorageUrl(String(item || '').trim()))
     .filter(Boolean)
 
   return Array.from(new Set(merged))

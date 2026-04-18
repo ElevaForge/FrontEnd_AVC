@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useAnuncios } from '@/hooks/use-anuncios'
 import type { Anuncio, TipoAnuncio } from '@/lib/types'
 import { AnnouncementModal } from '@/components/announcement-modal'
+import { normalizeSupabaseStorageUrl } from '@/lib/supabase'
 
 const tipoStyles: Record<TipoAnuncio, string> = {
   General: 'bg-slate-100 text-slate-700',
@@ -31,7 +32,7 @@ export function AnnouncementsSection() {
 
   const getPreviewMedia = (anuncio: Anuncio): string => {
     const gallery = Array.isArray(anuncio.galeria_urls) ? anuncio.galeria_urls : []
-    return gallery[0] || anuncio.imagen_url || '/placeholder.svg'
+    return normalizeSupabaseStorageUrl(gallery[0] || anuncio.imagen_url || '') || '/placeholder.svg'
   }
 
   return (
