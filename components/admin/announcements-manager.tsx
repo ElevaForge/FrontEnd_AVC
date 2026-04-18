@@ -122,13 +122,20 @@ export function AnnouncementsManager() {
 
       setUploadStats({ done: 0, total: pendingImages.length })
 
-      const uploadResults = await Promise.all(
-        pendingImages.map(async (pending) => {
-          const result = await uploadFileToStorage(pending.file, 'anuncios')
-          setUploadStats((prev) => ({ ...prev, done: Math.min(prev.done + 1, prev.total) }))
-          return result
-        }),
-      )
+      const uploadResults: Array<{ data: { publicUrl: string; path: string } | null; error: string | null }> = []
+      const batchSize = 2
+
+      for (let i = 0; i < pendingImages.length; i += batchSize) {
+        const batch = pendingImages.slice(i, i + batchSize)
+        const batchResults = await Promise.all(
+          batch.map(async (pending) => {
+            const result = await uploadFileToStorage(pending.file, 'anuncios')
+            setUploadStats((prev) => ({ ...prev, done: Math.min(prev.done + 1, prev.total) }))
+            return result
+          }),
+        )
+        uploadResults.push(...batchResults)
+      }
 
       const successfulUploads = uploadResults
         .filter((result): result is { data: { publicUrl: string; path: string }; error: null } => Boolean(result.data && !result.error))

@@ -80,7 +80,77 @@ export function validateMultimediaFile(
 
 function buildStoragePath(folder: string, fileName: string): string {
   const timestamp = Date.now()
-  return `${folder}/${timestamp}_${sanitizeFileName(fileName)}`
+  const randomSuffix = Math.random().toString(36).slice(2, 8)
+  return `${folder}/${timestamp}_${randomSuffix}_${sanitizeFileName(fileName)}`
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isRetryableStorageError(error: unknown): boolean {
+  const statusCode = Number((error as any)?.statusCode || (error as any)?.status || 0)
+  const message = String((error as any)?.message || '').toLowerCase()
+
+  if (statusCode >= 500) return true
+  if (statusCode === 0 && message.length > 0) return true
+
+  return (
+    message.includes('502')
+    || message.includes('bad gateway')
+    || message.includes('timeout')
+    || message.includes('network')
+  )
+}
+
+async function uploadToStorageWithRetry(
+  bucketName: string,
+  path: string,
+  file: File,
+): Promise<{ error: { message: string } | null }> {
+  const attempts = [
+    { includeContentType: true },
+    { includeContentType: false },
+  ]
+
+  let lastError: { message: string } | null = null
+
+  for (let round = 0; round < 3; round++) {
+    for (const attempt of attempts) {
+      const options: {
+        cacheControl: string
+        upsert: boolean
+        contentType?: string
+      } = {
+        cacheControl: '3600',
+        upsert: false,
+      }
+
+      if (attempt.includeContentType && file.type) {
+        options.contentType = file.type
+      }
+
+      const { error } = await supabase.storage
+        .from(bucketName)
+        .upload(path, file, options)
+
+      if (!error) {
+        return { error: null }
+      }
+
+      lastError = { message: error.message }
+
+      if (!isRetryableStorageError(error)) {
+        return { error: lastError }
+      }
+    }
+
+    if (round < 2) {
+      await wait(350 * (round + 1))
+    }
+  }
+
+  return { error: lastError || { message: 'Error desconocido subiendo archivo' } }
 }
 
 export function normalizeSupabaseStorageUrl(value: string | null | undefined, bucketName: string = BUCKET_NAME): string {
@@ -141,13 +211,7 @@ export async function uploadFileToStorage(file: File, folder: string, bucketName
 }> {
   const path = buildStoragePath(folder, file.name)
 
-  const { error: uploadError } = await supabase.storage
-    .from(bucketName)
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type,
-    })
+  const { error: uploadError } = await uploadToStorageWithRetry(bucketName, path, file)
 
   if (uploadError) {
     return {
@@ -228,13 +292,7 @@ export async function uploadMultimedia(
   const filePath = `${propertyId}/${timestamp}_${sanitizeFileName(file.name)}`
 
   // Step 1: Upload file to Storage
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type,
-    })
+  const { error: uploadError } = await uploadToStorageWithRetry(BUCKET_NAME, filePath, file)
 
   if (uploadError) {
     return {

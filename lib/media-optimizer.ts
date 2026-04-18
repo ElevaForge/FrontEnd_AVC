@@ -72,7 +72,7 @@ export async function optimizeImageForUpload(
       canvas.toBlob(resolve, settings.outputType, settings.quality)
     })
 
-    if (!blob || blob.size >= file.size) {
+    if (!blob || blob.size === 0 || blob.size >= file.size) {
       return file
     }
 
